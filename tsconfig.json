@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "es6",
-    "module": "es6",
+    "target": "esnext",
+    "module": "esnext",
     "moduleResolution": "node",
 
     "strict": true,
@@ -12,7 +12,7 @@
     "lib": [
       "dom",
       "webworker",
-      "es6"
+      "esnext"
     ],
     "outDir": "./lib",
     "baseUrl": "./",

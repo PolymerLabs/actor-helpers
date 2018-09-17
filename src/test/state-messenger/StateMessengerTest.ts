@@ -30,6 +30,10 @@ declare global {
   }
 }
 
+declare var Worker: {
+  prototype: Worker; new (stringUrl: string, options?: {type: string}): Worker;
+};
+
 suite('StateMessenger', () => {
   suite('initialization', () => {
     let firstClient: ClientStateMessenger<State>,
@@ -38,6 +42,8 @@ suite('StateMessenger', () => {
 
     const state = {foo: '', bar: {baz: 5}};
     const newState = {foo: 'Updated', bar: {baz: 6}};
+
+    const currentUrl = (import.meta as {url: string}).url;
 
     teardown(() => {
       if (firstClient) {
@@ -186,6 +192,20 @@ suite('StateMessenger', () => {
         // invoked to make sure we check the callback is not invoked
         return forceMicroTask(() => {});
       });
+    });
+
+    test('works when master is in worker', (done) => {
+      const worker = new Worker(
+          new URL('StateMessengerWorker.js', currentUrl).toString(),
+          {type: 'module'});
+      firstClient = ClientStateMessenger.create('channel');
+
+      firstClient.listen((callbackState) => {
+        assert.deepEqual(callbackState, newState);
+        done();
+      });
+
+      worker.postMessage('');
     });
   });
 });

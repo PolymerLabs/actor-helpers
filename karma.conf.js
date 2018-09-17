@@ -27,7 +27,7 @@ module.exports = function(config) {
         included: false
       },
       {
-        pattern: "lib/test/**/*Test.js",
+        pattern: "lib/test/**/*.js",
         type: "module"
       }
     ],
@@ -55,7 +55,14 @@ module.exports = function(config) {
 
     // start these browsers
     // available browser launchers: https://npmjs.org/browse/keyword/karma-launcher
-    browsers: ["Chrome"],
+    browsers: ["ChromeWithWorkerModules"],
+
+    customLaunchers: {
+      ChromeWithWorkerModules: {
+        base: 'Chrome',
+        flags: ['--enable-experimental-web-platform-features']
+      }
+    },
 
     // Continuous Integration mode
     // if true, Karma captures browsers, runs the tests and exits
