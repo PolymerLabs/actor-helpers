@@ -15,7 +15,8 @@
 enum BroadCastType {
   MASTER_EXISTS_BROADCAST = 'MASTER_EXISTS_BROADCAST',
   CLIENT_EXISTS_BROADCAST = 'CLIENT_EXISTS_BROADCAST',
-  STATE_UPDATE_BROADCAST = 'STATE_UPDATE_BROADCAST'
+  STATE_UPDATE_BROADCAST = 'STATE_UPDATE_BROADCAST',
+  CLIENT_STATE_UPDATE = 'CLIENT_STATE_UPDATE'
 }
 
 const DEFAULT_TIMEOUT = 100;
@@ -72,6 +73,8 @@ export class MasterStateMessenger<S> {
     this.channel.addEventListener('message', ({data}) => {
       if (data === BroadCastType.CLIENT_EXISTS_BROADCAST) {
         this.announceExistenceForClients();
+      } else if (data.type && data.type === BroadCastType.CLIENT_STATE_UPDATE) {
+        this.setState(data.state);
       }
     });
   }
@@ -144,7 +147,8 @@ export class ClientStateMessenger<S> {
   /**
    * Start the client while waiting on the master for state updates. If the
    * master does not respond within {@link #timeout}ms, the returnging Promise
-   * is rejected.
+   * is rejected. If you require state immediately, make sure to call {@link
+   * #listen(StateCallback)} first.
    */
   start() {
     return this.waitForMasterExistence();
@@ -188,6 +192,10 @@ export class ClientStateMessenger<S> {
     if (eventCallback) {
       this.channel.removeEventListener('message', eventCallback);
     }
+  }
+
+  send(state: S) {
+    this.channel.postMessage({type: BroadCastType.CLIENT_STATE_UPDATE, state});
   }
 
   private waitForMasterExistence() {

@@ -127,21 +127,27 @@ suite('StateMessenger', () => {
       firstClient = ClientStateMessenger.create('channel');
       secondClient = ClientStateMessenger.create('channel');
 
-      let called = 0;
+      master.start();
+      firstClient.start();
+      secondClient.start();
 
-      function assertCallback(callbackState: State) {
-        assert.deepEqual(callbackState, newState);
-        called++;
+      forceTask(() => {
+        let called = 0;
 
-        if (called === 2) {
-          done();
+        function assertCallback(callbackState: State) {
+          assert.deepEqual(callbackState, newState);
+          called++;
+
+          if (called === 2) {
+            done();
+          }
         }
-      }
 
-      firstClient.listen(assertCallback);
-      secondClient.listen(assertCallback);
+        firstClient.listen(assertCallback);
+        secondClient.listen(assertCallback);
 
-      master.setState(newState);
+        master.setState(newState);
+      });
     });
 
     test(
@@ -207,5 +213,26 @@ suite('StateMessenger', () => {
 
       worker.postMessage('');
     });
+
+    test(
+        'one client can send updates to other clients via the master',
+        (done) => {
+          master = MasterStateMessenger.create('channel', state);
+          firstClient = ClientStateMessenger.create('channel');
+          secondClient = ClientStateMessenger.create('channel');
+
+          master.start();
+          firstClient.start();
+          secondClient.start();
+
+          forceTask(() => {
+            secondClient.listen((callbackState) => {
+              assert.deepEqual(callbackState, newState);
+              done();
+            });
+
+            firstClient.send(newState);
+          });
+        });
   });
 });
