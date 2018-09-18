@@ -9,8 +9,13 @@ const newState = {
   bar: {baz: 6}
 };
 
-const master = MasterStateMessenger.create('channel', state);
+let master: MasterStateMessenger<{}>;
 
-onmessage = () => {
-  master.setState(newState);
+onmessage = ({data}) => {
+  if (data === 'create') {
+    master = MasterStateMessenger.create('channel', state);
+    master.start();
+  } else if (data === 'setState') {
+    master.setState(newState);
+  }
 };

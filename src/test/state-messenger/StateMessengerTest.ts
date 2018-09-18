@@ -38,7 +38,7 @@ suite('StateMessenger', () => {
   suite('initialization', () => {
     let firstClient: ClientStateMessenger<State>,
         secondClient: ClientStateMessenger<State>,
-        master: MasterStateMessenger<State>;
+        master: MasterStateMessenger<State>, worker: Worker;
 
     const state = {foo: '', bar: {baz: 5}};
     const newState = {foo: 'Updated', bar: {baz: 6}};
@@ -54,6 +54,9 @@ suite('StateMessenger', () => {
       }
       if (master) {
         master.close();
+      }
+      if (worker) {
+        worker.terminate();
       }
     });
 
@@ -78,35 +81,62 @@ suite('StateMessenger', () => {
       });
     }
 
-    test('works when master is available first', () => {
+    test('works when master is available first', (done) => {
       master = MasterStateMessenger.create('channel', state);
       firstClient = ClientStateMessenger.create('channel');
 
       master.start();
 
-      return forceTask(() => firstClient.start());
+      forceTask(() => {
+        firstClient.start().then(() => {
+          done();
+        });
+      });
     });
 
-    test('works when worker is available first', () => {
+    test('works when worker is available first', (done) => {
       master = MasterStateMessenger.create('channel', state);
       firstClient = ClientStateMessenger.create('channel');
 
       firstClient.start();
 
-      return forceTask(() => master.start());
+      forceTask(() => {
+        master.start();
+
+        forceTask(() => {
+          done();
+        });
+      });
     });
 
-    test('client errors when master is not available', () => {
+    test('client errors when master is not available', (done) => {
       firstClient = ClientStateMessenger.create('channel');
 
-      return new Promise(async (resolve, reject) => {
+      (async () => {
         try {
           await firstClient.start();
-
-          reject(`Client should have timed out, but it did not.`);
-        } catch (_e) {
-          resolve();
+        } catch (e) {
+          assert.include(e.message, 'Timed out');
+          return done();
         }
+
+        throw new Error(`Client should have timed out, but it did not.`);
+      })();
+    });
+
+    test('client retrieves state when starting', (done) => {
+      master = MasterStateMessenger.create('channel', state);
+      firstClient = ClientStateMessenger.create('channel');
+
+      master.start();
+
+      forceTask(() => {
+        firstClient.listen((callbackState) => {
+          assert.deepEqual(callbackState, state);
+          done();
+        });
+
+        firstClient.start();
       });
     });
 
@@ -114,12 +144,17 @@ suite('StateMessenger', () => {
       master = MasterStateMessenger.create('channel', state);
       firstClient = ClientStateMessenger.create('channel');
 
-      firstClient.listen((callbackState: State) => {
-        assert.deepEqual(callbackState, newState);
-        done();
-      });
+      master.start();
+      firstClient.start();
 
-      master.setState(newState);
+      forceTask(() => {
+        firstClient.listen((callbackState) => {
+          assert.deepEqual(callbackState, newState);
+          done();
+        });
+
+        master.setState(newState);
+      });
     });
 
     test('multiple clients receive the same state changes', (done) => {
@@ -152,66 +187,83 @@ suite('StateMessenger', () => {
 
     test(
         'does not receive any updates when immediately calling unlisten',
-        () => {
+        (done) => {
           master = MasterStateMessenger.create('channel', state);
           firstClient = ClientStateMessenger.create('channel');
 
-          function assertCallback() {
-            assert.fail(
-                'Callback should not be invoked after listener is removed');
-          }
+          forceTask(() => {
+            function assertCallback() {
+              assert.fail(
+                  'Callback should not be invoked after listener is removed');
+            }
 
-          firstClient.listen(assertCallback);
-          firstClient.unlisten(assertCallback);
+            firstClient.listen(assertCallback);
+            firstClient.unlisten(assertCallback);
 
-          master.setState(newState);
+            master.setState(newState);
 
-          // Force a microtask here to make sure the postMessage is actually
-          // invoked to make sure we check the callback is not invoked
-          return forceTask(() => {});
+            // Force a microtask here to make sure the postMessage is actually
+            // invoked to make sure we check the callback is not invoked
+            forceTask(() => {
+              done();
+            });
+          });
         });
 
-    test('does not receive any updates after unlisten', () => {
+    test('does not receive any updates after unlisten', (done) => {
       master = MasterStateMessenger.create('channel', state);
       firstClient = ClientStateMessenger.create('channel');
 
-      let called = 0;
+      master.start();
+      firstClient.start();
 
-      function assertCallback(callbackState: State) {
-        assert.deepEqual(callbackState, newState);
-        called++;
+      forceTask(() => {
+        let called = 0;
 
-        if (called === 2) {
-          assert.fail(
-              'Callback should not be invoked after listener is removed');
+        function assertCallback(callbackState: State) {
+          assert.deepEqual(callbackState, newState);
+          called++;
+
+          if (called === 2) {
+            assert.fail(
+                'Callback should not be invoked after listener is removed');
+          }
         }
-      }
 
-      master.setState(newState);
+        master.setState(newState);
 
-      return forceTask(() => {
-        firstClient.unlisten(assertCallback);
+        forceTask(() => {
+          firstClient.unlisten(assertCallback);
 
-        master.setState(state);
+          master.setState(state);
 
-        // Force a microtask here to make sure the postMessage is actually
-        // invoked to make sure we check the callback is not invoked
-        return forceTask(() => {});
+          // Force a microtask here to make sure the postMessage is actually
+          // invoked to make sure we check the callback is not invoked
+          forceTask(() => {
+            done();
+          });
+        });
       });
     });
 
     test('works when master is in worker', (done) => {
-      const worker = new Worker(
+      worker = new Worker(
           new URL('StateMessengerWorker.js', currentUrl).toString(),
           {type: 'module'});
+      worker.postMessage('create');
       firstClient = ClientStateMessenger.create('channel');
+      firstClient.start().then(() => {
+        forceTask(() => {
+          firstClient.listen((callbackState) => {
+            assert.deepEqual(callbackState, newState);
+            done();
+          });
 
-      firstClient.listen((callbackState) => {
-        assert.deepEqual(callbackState, newState);
-        done();
+          forceTask(() => {
+            worker.postMessage('setState');
+          });
+        });
       });
-
-      worker.postMessage('');
     });
 
     test(

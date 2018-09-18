@@ -29,7 +29,7 @@ declare global {
   interface StateMessengerChannelMap {}
 }
 
-interface Endpoint {
+export interface Endpoint {
   postMessage(msg: {}): void;
   addEventListener(
       type: 'message', listener: (this: Endpoint, ev: MessageEvent) => void,
@@ -40,7 +40,7 @@ interface Endpoint {
   close(): void;
 }
 
-interface ChannelOptions {
+export interface ChannelOptions {
   broadcastChannelConstructor?: new(channel: string) => Endpoint;
 }
 
@@ -85,6 +85,7 @@ export class MasterStateMessenger<S> {
       const {type} = data;
       if (type === BroadCastType.CLIENT_EXISTS_BROADCAST) {
         this.announceExistenceForClients();
+        this.announceStateToClients();
       } else if (type === BroadCastType.CLIENT_STATE_UPDATE) {
         this.setState(data.state);
       }
@@ -119,7 +120,7 @@ export class MasterStateMessenger<S> {
 type StateCallback<S> = (state: S) => void;
 type MessageEventListener = (event: MessageEvent) => void;
 
-interface ClientChannelOptions extends ChannelOptions {
+export interface ClientChannelOptions extends ChannelOptions {
   timeout?: number;
 }
 

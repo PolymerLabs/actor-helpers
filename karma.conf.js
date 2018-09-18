@@ -29,6 +29,14 @@ module.exports = function(config) {
       {
         pattern: "lib/test/**/*.js",
         type: "module"
+      },
+      {
+        pattern: "lib/**/*.js.map",
+        included: false
+      },
+      {
+        pattern: "src/**/*.ts",
+        included: false
       }
     ],
 
