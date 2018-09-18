@@ -29,8 +29,19 @@ declare global {
   interface StateMessengerChannelMap {}
 }
 
+interface Endpoint {
+  postMessage(msg: {}): void;
+  addEventListener(
+      type: 'message', listener: (this: Endpoint, ev: MessageEvent) => void,
+      options?: boolean|AddEventListenerOptions): void;
+  removeEventListener(
+      type: 'message', listener: (this: Endpoint, ev: MessageEvent) => void,
+      options?: boolean|EventListenerOptions): void;
+  close(): void;
+}
+
 interface ChannelOptions {
-  broadcastChannelConstructor?: typeof BroadcastChannel;
+  broadcastChannelConstructor?: new(channel: string) => Endpoint;
 }
 
 /**
@@ -41,7 +52,7 @@ interface ChannelOptions {
  */
 export class MasterStateMessenger<S> {
   state: S;
-  channel: BroadcastChannel;
+  channel: Endpoint;
 
   private constructor(
       channel: string, initialState: S, options: ChannelOptions) {
@@ -71,9 +82,10 @@ export class MasterStateMessenger<S> {
     this.announceExistenceForClients();
     this.announceStateToClients();
     this.channel.addEventListener('message', ({data}) => {
-      if (data === BroadCastType.CLIENT_EXISTS_BROADCAST) {
+      const {type} = data;
+      if (type === BroadCastType.CLIENT_EXISTS_BROADCAST) {
         this.announceExistenceForClients();
-      } else if (data.type && data.type === BroadCastType.CLIENT_STATE_UPDATE) {
+      } else if (type === BroadCastType.CLIENT_STATE_UPDATE) {
         this.setState(data.state);
       }
     });
@@ -95,7 +107,7 @@ export class MasterStateMessenger<S> {
   }
 
   private announceExistenceForClients() {
-    this.channel.postMessage(BroadCastType.MASTER_EXISTS_BROADCAST);
+    this.channel.postMessage({type: BroadCastType.MASTER_EXISTS_BROADCAST});
   }
 
   private announceStateToClients() {
@@ -120,7 +132,7 @@ interface ClientChannelOptions extends ChannelOptions {
 export class ClientStateMessenger<S> {
   callbackMap = new Map<StateCallback<S>, MessageEventListener>();
   timeout: number;
-  channel: BroadcastChannel;
+  channel: Endpoint;
 
   private constructor(channel: string, options: ClientChannelOptions) {
     const {
@@ -201,7 +213,7 @@ export class ClientStateMessenger<S> {
   private waitForMasterExistence() {
     return new Promise((resolve, reject) => {
       const initialExistenceListener = ({data}: MessageEvent) => {
-        if (data === BroadCastType.MASTER_EXISTS_BROADCAST) {
+        if (data.type === BroadCastType.MASTER_EXISTS_BROADCAST) {
           this.channel.removeEventListener('message', initialExistenceListener);
 
           resolve();
@@ -216,7 +228,7 @@ export class ClientStateMessenger<S> {
       }, this.timeout);
 
       this.channel.addEventListener('message', initialExistenceListener);
-      this.channel.postMessage(BroadCastType.CLIENT_EXISTS_BROADCAST);
+      this.channel.postMessage({type: BroadCastType.CLIENT_EXISTS_BROADCAST});
     });
   }
 }
