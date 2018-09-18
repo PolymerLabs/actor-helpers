@@ -28,18 +28,24 @@ declare global {
   interface StateMessengerChannelMap {}
 }
 
+interface ChannelOptions {
+  broadcastChannelConstructor?: typeof BroadcastChannel;
+}
+
 /**
  * Master node for state communication. Use {@link
  * MasterStateMessenger#create()} to construct an instance. For TypeScript
  * users, make sure to specify the type of state that you are communicating over
  * the channel in the global {@link StateMessengerChannelMap} interface.
  */
-export class MasterStateMessenger<S> extends BroadcastChannel {
+export class MasterStateMessenger<S> {
   state: S;
+  channel: BroadcastChannel;
 
-  private constructor(channel: string, initialState: S) {
-    super(channel);
-
+  private constructor(
+      channel: string, initialState: S, options: ChannelOptions) {
+    const {broadcastChannelConstructor = BroadcastChannel} = options;
+    this.channel = new broadcastChannelConstructor(channel);
     this.state = initialState;
   }
 
@@ -50,8 +56,9 @@ export class MasterStateMessenger<S> extends BroadcastChannel {
    * @param channel The channel name that is used to communicate.
    */
   static create<C extends keyof StateMessengerChannelMap>(
-      channel: C, initialState: StateMessengerChannelMap[C]) {
-    return new MasterStateMessenger(channel, initialState);
+      channel: C, initialState: StateMessengerChannelMap[C],
+      options: ChannelOptions = {}) {
+    return new MasterStateMessenger(channel, initialState, options);
   }
 
   /**
@@ -62,11 +69,15 @@ export class MasterStateMessenger<S> extends BroadcastChannel {
   start() {
     this.announceExistenceForClients();
     this.announceStateToClients();
-    this.addEventListener('message', ({data}) => {
+    this.channel.addEventListener('message', ({data}) => {
       if (data === BroadCastType.CLIENT_EXISTS_BROADCAST) {
         this.announceExistenceForClients();
       }
     });
+  }
+
+  close() {
+    this.channel.close();
   }
 
   /**
@@ -81,11 +92,11 @@ export class MasterStateMessenger<S> extends BroadcastChannel {
   }
 
   private announceExistenceForClients() {
-    this.postMessage(BroadCastType.MASTER_EXISTS_BROADCAST);
+    this.channel.postMessage(BroadCastType.MASTER_EXISTS_BROADCAST);
   }
 
   private announceStateToClients() {
-    this.postMessage(
+    this.channel.postMessage(
         {type: BroadCastType.STATE_UPDATE_BROADCAST, state: this.state});
   }
 }
@@ -93,20 +104,28 @@ export class MasterStateMessenger<S> extends BroadcastChannel {
 type StateCallback<S> = (state: S) => void;
 type MessageEventListener = (event: MessageEvent) => void;
 
+interface ClientChannelOptions extends ChannelOptions {
+  timeout?: number;
+}
+
 /**
  * Client node for state communication. Use {@link
  * ClientStateMessenger#create()} to construct an instance. For TypeScript
  * users, make sure to specify the type of state that you are communicating over
  * the channel in the global {@link StateMessengerChannelMap} interface.
  */
-export class ClientStateMessenger<S> extends BroadcastChannel {
+export class ClientStateMessenger<S> {
   callbackMap = new Map<StateCallback<S>, MessageEventListener>();
   timeout: number;
+  channel: BroadcastChannel;
 
-  private constructor(channel: string, options: {timeout?: number} = {}) {
-    super(channel);
+  private constructor(channel: string, options: ClientChannelOptions) {
+    const {
+      timeout = DEFAULT_TIMEOUT,
+      broadcastChannelConstructor = BroadcastChannel
+    } = options;
+    this.channel = new broadcastChannelConstructor(channel);
 
-    const {timeout = DEFAULT_TIMEOUT} = options;
     this.timeout = timeout;
   }
 
@@ -116,8 +135,10 @@ export class ClientStateMessenger<S> extends BroadcastChannel {
    *
    * @param channel The channel name that is used to communicate.
    */
-  static create<C extends keyof StateMessengerChannelMap>(channel: C) {
-    return new ClientStateMessenger<StateMessengerChannelMap[C]>(channel);
+  static create<C extends keyof StateMessengerChannelMap>(
+      channel: C, options: ClientChannelOptions = {}) {
+    return new ClientStateMessenger<StateMessengerChannelMap[C]>(
+        channel, options);
   }
 
   /**
@@ -129,34 +150,43 @@ export class ClientStateMessenger<S> extends BroadcastChannel {
     return this.waitForMasterExistence();
   }
 
+  close() {
+    for (const callback of this.callbackMap.values()) {
+      this.channel.removeEventListener('message', callback);
+    }
+
+    this.callbackMap.clear();
+    this.channel.close();
+  }
+
   /**
-   * Listen for any changes broadcasted by the master. Make sure that the client
-   * is started by invoking {@link #start()} first.
+   * Listen for any changes broadcasted by the master. Make sure that the
+   * client is started by invoking {@link #start()} first.
    * @param callback Callback function that supplies the new state.
    */
   listen(callback: StateCallback<S>) {
-    function eventCallback(event: MessageEvent) {
+    const eventCallback = (event: MessageEvent) => {
       if (event.data &&
           event.data.type === BroadCastType.STATE_UPDATE_BROADCAST) {
         callback(event.data.state);
       }
-    }
+    };
 
     this.callbackMap.set(callback, eventCallback);
-    this.addEventListener('message', eventCallback);
+    this.channel.addEventListener('message', eventCallback);
   }
 
   /**
    * Unlisten to state changes.
    *
-   * @param callback The original callback function that was passed into {@link
-   *     #listen(callback)}.
+   * @param callback The original callback function that was passed
+   *     into {@link #listen(callback)}.
    */
   unlisten(callback: StateCallback<S>) {
     const eventCallback = this.callbackMap.get(callback);
 
     if (eventCallback) {
-      this.removeEventListener('message', eventCallback);
+      this.channel.removeEventListener('message', eventCallback);
     }
   }
 
@@ -164,21 +194,21 @@ export class ClientStateMessenger<S> extends BroadcastChannel {
     return new Promise((resolve, reject) => {
       const initialExistenceListener = ({data}: MessageEvent) => {
         if (data === BroadCastType.MASTER_EXISTS_BROADCAST) {
-          this.removeEventListener('message', initialExistenceListener);
+          this.channel.removeEventListener('message', initialExistenceListener);
 
           resolve();
         }
       };
 
       setTimeout(() => {
-        this.removeEventListener('message', initialExistenceListener);
+        this.channel.removeEventListener('message', initialExistenceListener);
 
         reject(new Error(`Timed out connecting to master. Make sure the master is available within ${
             this.timeout}ms. If you require a longer timeout, add "timeout" in the constructor of the client.`));
       }, this.timeout);
 
-      this.addEventListener('message', initialExistenceListener);
-      this.postMessage(BroadCastType.CLIENT_EXISTS_BROADCAST);
+      this.channel.addEventListener('message', initialExistenceListener);
+      this.channel.postMessage(BroadCastType.CLIENT_EXISTS_BROADCAST);
     });
   }
 }
