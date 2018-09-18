@@ -59,14 +59,14 @@ suite('StateMessenger', () => {
 
     /**
      * If we `.postMessage` on a channel, the eventListeners of the other
-     * channels will be executed AFTER the microtask. This means that if we
-     * start both master and client in the same microTask, the client WILL
+     * channels will be executed AFTER the task. This means that if we
+     * start both master and client in the same task, the client WILL
      * receive the postMessage from the master, even though that was executed
      * before the client was started.
      *
      * @param callback The callback to execute.
      */
-    function forceMicroTask(callback: () => Promise<any>| void) {
+    function forceTask(callback: () => Promise<any>| void) {
       return new Promise((resolve, reject) => {
         setTimeout(async () => {
           try {
@@ -84,7 +84,7 @@ suite('StateMessenger', () => {
 
       master.start();
 
-      return forceMicroTask(() => firstClient.start());
+      return forceTask(() => firstClient.start());
     });
 
     test('works when worker is available first', () => {
@@ -93,7 +93,7 @@ suite('StateMessenger', () => {
 
       firstClient.start();
 
-      return forceMicroTask(() => master.start());
+      return forceTask(() => master.start());
     });
 
     test('client errors when master is not available', () => {
@@ -162,7 +162,7 @@ suite('StateMessenger', () => {
 
           // Force a microtask here to make sure the postMessage is actually
           // invoked to make sure we check the callback is not invoked
-          return forceMicroTask(() => {});
+          return forceTask(() => {});
         });
 
     test('does not receive any updates after unlisten', () => {
@@ -183,14 +183,14 @@ suite('StateMessenger', () => {
 
       master.setState(newState);
 
-      return forceMicroTask(() => {
+      return forceTask(() => {
         firstClient.unlisten(assertCallback);
 
         master.setState(state);
 
         // Force a microtask here to make sure the postMessage is actually
         // invoked to make sure we check the callback is not invoked
-        return forceMicroTask(() => {});
+        return forceTask(() => {});
       });
     });
 

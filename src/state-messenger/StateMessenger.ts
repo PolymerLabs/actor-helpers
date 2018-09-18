@@ -103,10 +103,11 @@ export class ClientStateMessenger<S> extends BroadcastChannel {
   callbackMap = new Map<StateCallback<S>, MessageEventListener>();
   timeout: number;
 
-  private constructor(channel: string, timeout?: number) {
+  private constructor(channel: string, options: {timeout?: number} = {}) {
     super(channel);
 
-    this.timeout = timeout || DEFAULT_TIMEOUT;
+    const {timeout = DEFAULT_TIMEOUT} = options;
+    this.timeout = timeout;
   }
 
   /**
@@ -172,8 +173,8 @@ export class ClientStateMessenger<S> extends BroadcastChannel {
       setTimeout(() => {
         this.removeEventListener('message', initialExistenceListener);
 
-        reject(`Timed out connecting to master. Make sure the master is available within ${
-            this.timeout}ms. If you require a longer timeout, add "timeout" in the constructor of the client.`);
+        reject(new Error(`Timed out connecting to master. Make sure the master is available within ${
+            this.timeout}ms. If you require a longer timeout, add "timeout" in the constructor of the client.`));
       }, this.timeout);
 
       this.addEventListener('message', initialExistenceListener);
