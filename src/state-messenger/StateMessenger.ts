@@ -181,10 +181,9 @@ export class ClientStateMessenger<S> {
    * @param callback Callback function that supplies the new state.
    */
   listen(callback: StateCallback<S>) {
-    const eventCallback = (event: MessageEvent) => {
-      if (event.data &&
-          event.data.type === BroadCastType.STATE_UPDATE_BROADCAST) {
-        callback(event.data.state);
+    const eventCallback = ({data}: MessageEvent) => {
+      if (data.type === BroadCastType.STATE_UPDATE_BROADCAST) {
+        callback(data.state);
       }
     };
 
