@@ -34,6 +34,8 @@ declare var Worker: {
   prototype: Worker; new (stringUrl: string, options?: {type: string}): Worker;
 };
 
+const TIMEOUT = 10;
+
 suite('StateMessenger', () => {
   suite('initialization', () => {
     let firstClient: ClientStateMessenger<State>,
@@ -60,52 +62,45 @@ suite('StateMessenger', () => {
       }
     });
 
-    /**
-     * If we `.postMessage` on a channel, the eventListeners of the other
-     * channels will be executed AFTER the task. This means that if we
-     * start both master and client in the same task, the client WILL
-     * receive the postMessage from the master, even though that was executed
-     * before the client was started.
-     *
-     * @param callback The callback to execute.
-     */
-    function forceTask(callback: () => Promise<any>| void) {
-      return new Promise((resolve, reject) => {
-        setTimeout(async () => {
-          try {
-            resolve(await callback());
-          } catch (e) {
-            reject(e);
-          }
-        }, 1);
+    function retrieveStateMessage(client: ClientStateMessenger<State>) {
+      return new Promise((resolve) => {
+        const callback = (callbackState: State) => {
+          resolve(callbackState);
+        };
+
+        client.listen(callback);
       });
     }
 
-    test('works when master is available first', (done) => {
+    test('works when master is available first', async () => {
       master = MasterStateMessenger.create('channel', state);
-      firstClient = ClientStateMessenger.create('channel');
+      firstClient = ClientStateMessenger.create('channel', {timeout: TIMEOUT});
 
       master.start();
 
-      forceTask(() => {
-        firstClient.start().then(() => {
-          done();
-        });
+      await new Promise((resolve) => {
+        setTimeout(async () => {
+          await firstClient.start();
+
+          resolve();
+        }, TIMEOUT / 2);
       });
     });
 
-    test('works when worker is available first', (done) => {
+    test('works when worker is available first', async () => {
       master = MasterStateMessenger.create('channel', state);
-      firstClient = ClientStateMessenger.create('channel');
+      firstClient = ClientStateMessenger.create('channel', {timeout: TIMEOUT});
 
       const clientPromise = firstClient.start();
 
-      forceTask(async () => {
-        master.start();
+      await new Promise((resolve) => {
+        setTimeout(async () => {
+          master.start();
 
-        await clientPromise;
+          await clientPromise;
 
-        done();
+          resolve();
+        }, TIMEOUT / 2);
       });
     });
 
@@ -122,166 +117,158 @@ suite('StateMessenger', () => {
       throw new Error(`Client should have timed out, but it did not.`);
     });
 
-    test('client retrieves state when starting', (done) => {
+    test('client retrieves state when starting', async () => {
       master = MasterStateMessenger.create('channel', state);
       firstClient = ClientStateMessenger.create('channel');
 
       master.start();
 
-      forceTask(() => {
-        firstClient.listen((callbackState) => {
-          assert.deepEqual(callbackState, state);
-          done();
-        });
-
-        firstClient.start();
-      });
+      const firstMessagePromise = retrieveStateMessage(firstClient);
+      await firstClient.start();
+      assert.deepEqual(await firstMessagePromise, state);
     });
 
-    test('client can listen to state changes', (done) => {
+    test('client can listen to state changes', async () => {
       master = MasterStateMessenger.create('channel', state);
       firstClient = ClientStateMessenger.create('channel');
 
       master.start();
-      firstClient.start();
+      await firstClient.start();
+      await retrieveStateMessage(firstClient);
 
-      forceTask(() => {
-        firstClient.listen((callbackState) => {
-          assert.deepEqual(callbackState, newState);
-          done();
-        });
-
-        master.setState(newState);
-      });
+      master.setState(newState);
+      assert.deepEqual(await retrieveStateMessage(firstClient), newState);
     });
 
-    test('multiple clients receive the same state changes', (done) => {
+    test('multiple clients receive the same state changes', async () => {
       master = MasterStateMessenger.create('channel', state);
       firstClient = ClientStateMessenger.create('channel');
       secondClient = ClientStateMessenger.create('channel');
 
       master.start();
-      firstClient.start();
-      secondClient.start();
+      await Promise.all([firstClient.start(), secondClient.start()]);
 
-      forceTask(() => {
-        let called = 0;
+      await Promise.all([
+        retrieveStateMessage(firstClient), retrieveStateMessage(secondClient)
+      ]);
 
-        function assertCallback(callbackState: State) {
-          assert.deepEqual(callbackState, newState);
-          called++;
+      master.setState(newState);
 
-          if (called === 2) {
-            done();
-          }
-        }
-
-        firstClient.listen(assertCallback);
-        secondClient.listen(assertCallback);
-
-        master.setState(newState);
-      });
+      const [firstState, secondState] = await Promise.all([
+        retrieveStateMessage(firstClient), retrieveStateMessage(secondClient)
+      ]);
+      assert.deepEqual(firstState, newState);
+      assert.deepEqual(secondState, newState);
     });
 
     test(
         'does not receive any updates when immediately calling unlisten',
-        (done) => {
+        async () => {
           master = MasterStateMessenger.create('channel', state);
           firstClient = ClientStateMessenger.create('channel');
 
-          forceTask(() => {
-            function assertCallback() {
-              assert.fail(
-                  'Callback should not be invoked after listener is removed');
-            }
+          master.start();
+          await firstClient.start();
 
-            firstClient.listen(assertCallback);
-            firstClient.unlisten(assertCallback);
+          await retrieveStateMessage(firstClient);
 
-            master.setState(newState);
+          master.setState(newState);
 
-            // Force a microtask here to make sure the postMessage is actually
-            // invoked to make sure we check the callback is not invoked
-            forceTask(() => {
-              done();
-            });
+          function assertCallback() {
+            assert.fail(
+                `Callback should not be invoked after listener is removed`);
+          }
+
+          firstClient.listen(assertCallback);
+          firstClient.unlisten(assertCallback);
+
+          await new Promise((resolve) => {
+            setTimeout(() => {
+              resolve();
+            }, TIMEOUT);
           });
         });
 
-    test('does not receive any updates after unlisten', (done) => {
+    test('does not receive any updates after unlisten', async () => {
       master = MasterStateMessenger.create('channel', state);
       firstClient = ClientStateMessenger.create('channel');
 
       master.start();
-      firstClient.start();
+      await firstClient.start();
 
-      forceTask(() => {
+      await retrieveStateMessage(firstClient);
+
+      master.setState(newState);
+
+      await new Promise(async (resolveOuterPromise, reject) => {
         let called = 0;
-
-        function assertCallback(callbackState: State) {
-          assert.deepEqual(callbackState, newState);
+        let resolveInnerPromise: () => void;
+        const callback = () => {
           called++;
 
           if (called === 2) {
-            assert.fail(
-                'Callback should not be invoked after listener is removed');
+            reject(new Error(
+                `Callback should not be invoked after listener is removed`));
+          } else {
+            resolveInnerPromise();
           }
-        }
+        };
 
-        master.setState(newState);
-
-        forceTask(() => {
-          firstClient.unlisten(assertCallback);
-
-          master.setState(state);
-
-          // Force a microtask here to make sure the postMessage is actually
-          // invoked to make sure we check the callback is not invoked
-          forceTask(() => {
-            done();
-          });
+        await new Promise((resolve) => {
+          resolveInnerPromise = resolve;
+          firstClient.listen(callback);
         });
+
+        master.setState(state);
+
+        firstClient.unlisten(callback);
+
+        setTimeout(() => {
+          assert.equal(called, 1);
+          resolveOuterPromise();
+        }, TIMEOUT);
       });
     });
 
-    test('works when master is in worker', (done) => {
+    test('works when master is in worker', async () => {
       worker = new Worker(
           new URL('StateMessengerWorker.js', currentUrl).toString(),
           {type: 'module'});
       worker.postMessage('create');
       firstClient = ClientStateMessenger.create('channel');
-      firstClient.start().then(() => {
-        forceTask(() => {
-          firstClient.listen((callbackState) => {
-            assert.deepEqual(callbackState, newState);
-            done();
-          });
 
-          forceTask(() => {
-            worker.postMessage('setState');
-          });
-        });
-      });
+      await firstClient.start();
+
+      await retrieveStateMessage(firstClient);
+
+      worker.postMessage('setState');
+
+      assert.deepEqual(await retrieveStateMessage(firstClient), newState);
     });
 
     test(
         'one client can send updates to other clients via the master',
-        (done) => {
+        async () => {
           master = MasterStateMessenger.create('channel', state);
           firstClient = ClientStateMessenger.create('channel');
           secondClient = ClientStateMessenger.create('channel');
 
           master.start();
-          firstClient.start();
-          secondClient.start();
+          await Promise.all([firstClient.start(), secondClient.start()]);
 
-          forceTask(() => {
-            secondClient.listen((callbackState) => {
-              assert.deepEqual(callbackState, newState);
-              done();
-            });
+          await new Promise((resolve) => {
+            setTimeout(async () => {
+              firstClient.send(newState);
 
-            firstClient.send(newState);
+              const [firstState, secondState] = await Promise.all([
+                retrieveStateMessage(firstClient),
+                retrieveStateMessage(secondClient)
+              ]);
+              assert.deepEqual(firstState, newState);
+              assert.deepEqual(secondState, newState);
+
+              resolve();
+            }, TIMEOUT);
           });
         });
   });

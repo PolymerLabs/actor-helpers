@@ -85,7 +85,6 @@ export class MasterStateMessenger<S> {
       const {type} = data;
       if (type === BroadCastType.CLIENT_EXISTS_BROADCAST) {
         this.announceExistenceForClients();
-        this.announceStateToClients();
       } else if (type === BroadCastType.CLIENT_STATE_UPDATE) {
         this.setState(data.state);
       }
@@ -108,7 +107,8 @@ export class MasterStateMessenger<S> {
   }
 
   private announceExistenceForClients() {
-    this.channel.postMessage({type: BroadCastType.MASTER_EXISTS_BROADCAST});
+    this.channel.postMessage(
+        {type: BroadCastType.MASTER_EXISTS_BROADCAST, state: this.state});
   }
 
   private announceStateToClients() {
@@ -222,8 +222,9 @@ export class ClientStateMessenger<S> {
           this.channel.removeEventListener('message', initialExistenceListener);
           this.started = true;
 
-          for (const callback of this.callbackMap.values()) {
-            this.channel.addEventListener('message', callback);
+          for (const [callback, eventCallback] of this.callbackMap.entries()) {
+            callback(data.state);
+            this.channel.addEventListener('message', eventCallback);
           }
 
           resolve();
