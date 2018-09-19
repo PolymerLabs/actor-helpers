@@ -12,40 +12,45 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import {ClientStateMessenger, MasterStateMessenger} from '../../state-messenger/StateMessenger.js';
+import {
+  ClientStateMessenger,
+  MasterStateMessenger
+} from "../../state-messenger/StateMessenger.js";
 
-declare var window: {Mocha: Mocha.MochaGlobals, assert: Chai.Assert};
+declare var window: { Mocha: Mocha.MochaGlobals; assert: Chai.Assert };
 
-const {suite, teardown, test} = window.Mocha;
-const {assert} = window;
+const { suite, teardown, test } = window.Mocha;
+const { assert } = window;
 
 interface State {
   foo: string;
-  bar: {baz: number;};
+  bar: { baz: number };
 }
 
 declare global {
   interface StateMessengerChannelMap {
-    'channel': State;
+    channel: State;
   }
 }
 
 declare var Worker: {
-  prototype: Worker; new (stringUrl: string, options?: {type: string}): Worker;
+  prototype: Worker;
+  new (stringUrl: string, options?: { type: string }): Worker;
 };
 
 const TIMEOUT = 10;
 
-suite('StateMessenger', () => {
-  suite('initialization', () => {
+suite("StateMessenger", () => {
+  suite("initialization", () => {
     let firstClient: ClientStateMessenger<State>,
-        secondClient: ClientStateMessenger<State>,
-        master: MasterStateMessenger<State>, worker: Worker;
+      secondClient: ClientStateMessenger<State>,
+      master: MasterStateMessenger<State>,
+      worker: Worker;
 
-    const state = {foo: '', bar: {baz: 5}};
-    const newState = {foo: 'Updated', bar: {baz: 6}};
+    const state = { foo: "", bar: { baz: 5 } };
+    const newState = { foo: "Updated", bar: { baz: 6 } };
 
-    const currentUrl = (import.meta as {url: string}).url;
+    const currentUrl = (import.meta as { url: string }).url;
 
     teardown(() => {
       if (firstClient) {
@@ -63,7 +68,7 @@ suite('StateMessenger', () => {
     });
 
     function retrieveStateMessage(client: ClientStateMessenger<State>) {
-      return new Promise((resolve) => {
+      return new Promise(resolve => {
         const callback = (callbackState: State) => {
           client.unlisten(callback);
           resolve(callbackState);
@@ -73,13 +78,15 @@ suite('StateMessenger', () => {
       });
     }
 
-    test('works when master is available first', async () => {
-      master = MasterStateMessenger.create('channel', state);
-      firstClient = ClientStateMessenger.create('channel', {timeout: TIMEOUT});
+    test("works when master is available first", async () => {
+      master = MasterStateMessenger.create("channel", state);
+      firstClient = ClientStateMessenger.create("channel", {
+        timeout: TIMEOUT
+      });
 
       master.start();
 
-      await new Promise((resolve) => {
+      await new Promise(resolve => {
         setTimeout(async () => {
           await firstClient.start();
 
@@ -88,13 +95,15 @@ suite('StateMessenger', () => {
       });
     });
 
-    test('works when worker is available first', async () => {
-      master = MasterStateMessenger.create('channel', state);
-      firstClient = ClientStateMessenger.create('channel', {timeout: TIMEOUT});
+    test("works when worker is available first", async () => {
+      master = MasterStateMessenger.create("channel", state);
+      firstClient = ClientStateMessenger.create("channel", {
+        timeout: TIMEOUT
+      });
 
       const clientPromise = firstClient.start();
 
-      await new Promise((resolve) => {
+      await new Promise(resolve => {
         setTimeout(async () => {
           master.start();
 
@@ -105,22 +114,22 @@ suite('StateMessenger', () => {
       });
     });
 
-    test('client errors when master is not available', async () => {
-      firstClient = ClientStateMessenger.create('channel');
+    test("client errors when master is not available", async () => {
+      firstClient = ClientStateMessenger.create("channel");
 
       try {
         await firstClient.start();
       } catch (e) {
-        assert.include(e.message, 'Timed out');
+        assert.include(e.message, "Timed out");
         return;
       }
 
       throw new Error(`Client should have timed out, but it did not.`);
     });
 
-    test('client retrieves state when starting', async () => {
-      master = MasterStateMessenger.create('channel', state);
-      firstClient = ClientStateMessenger.create('channel');
+    test("client retrieves state when starting", async () => {
+      master = MasterStateMessenger.create("channel", state);
+      firstClient = ClientStateMessenger.create("channel");
 
       master.start();
 
@@ -129,9 +138,9 @@ suite('StateMessenger', () => {
       assert.deepEqual(await firstMessagePromise, state);
     });
 
-    test('client can listen to state changes', async () => {
-      master = MasterStateMessenger.create('channel', state);
-      firstClient = ClientStateMessenger.create('channel');
+    test("client can listen to state changes", async () => {
+      master = MasterStateMessenger.create("channel", state);
+      firstClient = ClientStateMessenger.create("channel");
 
       master.start();
       await firstClient.start();
@@ -141,10 +150,10 @@ suite('StateMessenger', () => {
       assert.deepEqual(await retrieveStateMessage(firstClient), newState);
     });
 
-    test('multiple clients receive the same state changes', async () => {
-      master = MasterStateMessenger.create('channel', state);
-      firstClient = ClientStateMessenger.create('channel');
-      secondClient = ClientStateMessenger.create('channel');
+    test("multiple clients receive the same state changes", async () => {
+      master = MasterStateMessenger.create("channel", state);
+      firstClient = ClientStateMessenger.create("channel");
+      secondClient = ClientStateMessenger.create("channel");
 
       master.start();
       await firstClient.start();
@@ -156,43 +165,41 @@ suite('StateMessenger', () => {
       master.setState(newState);
 
       const [firstState, secondState] = await Promise.all([
-        retrieveStateMessage(firstClient), retrieveStateMessage(secondClient)
+        retrieveStateMessage(firstClient),
+        retrieveStateMessage(secondClient)
       ]);
       assert.deepEqual(firstState, newState);
       assert.deepEqual(secondState, newState);
     });
 
-    test(
-        'does not receive any updates when immediately calling unlisten',
-        async () => {
-          master = MasterStateMessenger.create('channel', state);
-          firstClient = ClientStateMessenger.create('channel');
+    test("does not receive any updates when immediately calling unlisten", async () => {
+      master = MasterStateMessenger.create("channel", state);
+      firstClient = ClientStateMessenger.create("channel");
 
-          master.start();
-          await firstClient.start();
+      master.start();
+      await firstClient.start();
 
-          await retrieveStateMessage(firstClient);
+      await retrieveStateMessage(firstClient);
 
-          master.setState(newState);
+      master.setState(newState);
 
-          function assertCallback() {
-            assert.fail(
-                `Callback should not be invoked after listener is removed`);
-          }
+      function assertCallback() {
+        assert.fail(`Callback should not be invoked after listener is removed`);
+      }
 
-          firstClient.listen(assertCallback);
-          firstClient.unlisten(assertCallback);
+      firstClient.listen(assertCallback);
+      firstClient.unlisten(assertCallback);
 
-          await new Promise((resolve) => {
-            setTimeout(() => {
-              resolve();
-            }, TIMEOUT);
-          });
-        });
+      await new Promise(resolve => {
+        setTimeout(() => {
+          resolve();
+        }, TIMEOUT);
+      });
+    });
 
-    test('does not receive any updates after unlisten', async () => {
-      master = MasterStateMessenger.create('channel', state);
-      firstClient = ClientStateMessenger.create('channel');
+    test("does not receive any updates after unlisten", async () => {
+      master = MasterStateMessenger.create("channel", state);
+      firstClient = ClientStateMessenger.create("channel");
 
       master.start();
       await firstClient.start();
@@ -211,38 +218,38 @@ suite('StateMessenger', () => {
       assert.equal(messages.length, 1);
     });
 
-    test('works when master is in worker', async () => {
+    test("works when master is in worker", async () => {
       worker = new Worker(
-          new URL('StateMessengerWorker.js', currentUrl).toString(),
-          {type: 'module'});
-      worker.postMessage('create');
-      firstClient = ClientStateMessenger.create('channel');
+        new URL("StateMessengerWorker.js", currentUrl).toString(),
+        { type: "module" }
+      );
+
+      worker.postMessage("create");
+      firstClient = ClientStateMessenger.create("channel");
 
       await firstClient.start();
 
       await retrieveStateMessage(firstClient);
 
-      worker.postMessage('setState');
+      worker.postMessage("setState");
 
       assert.deepEqual(await retrieveStateMessage(firstClient), newState);
     });
 
-    test(
-        'one client can send updates to other clients via the master',
-        async () => {
-          master = MasterStateMessenger.create('channel', state);
-          firstClient = ClientStateMessenger.create('channel');
-          secondClient = ClientStateMessenger.create('channel');
+    test("one client can send updates to other clients via the master", async () => {
+      master = MasterStateMessenger.create("channel", state);
+      firstClient = ClientStateMessenger.create("channel");
+      secondClient = ClientStateMessenger.create("channel");
 
-          master.start();
+      master.start();
 
-          await firstClient.start();
-          await secondClient.start();
-          await retrieveStateMessage(firstClient);
-          await retrieveStateMessage(secondClient);
+      await firstClient.start();
+      await secondClient.start();
+      await retrieveStateMessage(firstClient);
+      await retrieveStateMessage(secondClient);
 
-          firstClient.send(newState);
-          assert.deepEqual(await retrieveStateMessage(secondClient), newState);
-        });
+      firstClient.send(newState);
+      assert.deepEqual(await retrieveStateMessage(secondClient), newState);
+    });
   });
 });

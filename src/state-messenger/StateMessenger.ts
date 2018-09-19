@@ -13,10 +13,10 @@
  */
 
 enum BroadCastType {
-  MASTER_EXISTS_BROADCAST = 'MASTER_EXISTS_BROADCAST',
-  CLIENT_EXISTS_BROADCAST = 'CLIENT_EXISTS_BROADCAST',
-  STATE_UPDATE_BROADCAST = 'STATE_UPDATE_BROADCAST',
-  CLIENT_STATE_UPDATE = 'CLIENT_STATE_UPDATE'
+  MASTER_EXISTS_BROADCAST = "MASTER_EXISTS_BROADCAST",
+  CLIENT_EXISTS_BROADCAST = "CLIENT_EXISTS_BROADCAST",
+  STATE_UPDATE_BROADCAST = "STATE_UPDATE_BROADCAST",
+  CLIENT_STATE_UPDATE = "CLIENT_STATE_UPDATE"
 }
 
 const DEFAULT_TIMEOUT = 100;
@@ -32,16 +32,20 @@ declare global {
 export interface Endpoint {
   postMessage(msg: {}): void;
   addEventListener(
-      type: 'message', listener: (this: Endpoint, ev: MessageEvent) => void,
-      options?: boolean|AddEventListenerOptions): void;
+    type: "message",
+    listener: (this: Endpoint, ev: MessageEvent) => void,
+    options?: boolean | AddEventListenerOptions
+  ): void;
   removeEventListener(
-      type: 'message', listener: (this: Endpoint, ev: MessageEvent) => void,
-      options?: boolean|EventListenerOptions): void;
+    type: "message",
+    listener: (this: Endpoint, ev: MessageEvent) => void,
+    options?: boolean | EventListenerOptions
+  ): void;
   close(): void;
 }
 
 export interface ChannelOptions {
-  broadcastChannelConstructor?: new(channel: string) => Endpoint;
+  broadcastChannelConstructor?: new (channel: string) => Endpoint;
 }
 
 /**
@@ -55,8 +59,11 @@ export class MasterStateMessenger<S> {
   channel: Endpoint;
 
   private constructor(
-      channel: string, initialState: S, options: ChannelOptions) {
-    const {broadcastChannelConstructor = BroadcastChannel} = options;
+    channel: string,
+    initialState: S,
+    options: ChannelOptions
+  ) {
+    const { broadcastChannelConstructor = BroadcastChannel } = options;
     this.channel = new broadcastChannelConstructor(channel);
     this.state = initialState;
   }
@@ -68,8 +75,10 @@ export class MasterStateMessenger<S> {
    * @param channel The channel name that is used to communicate.
    */
   static create<C extends keyof StateMessengerChannelMap>(
-      channel: C, initialState: StateMessengerChannelMap[C],
-      options: ChannelOptions = {}) {
+    channel: C,
+    initialState: StateMessengerChannelMap[C],
+    options: ChannelOptions = {}
+  ) {
     return new MasterStateMessenger(channel, initialState, options);
   }
 
@@ -81,8 +90,8 @@ export class MasterStateMessenger<S> {
   start() {
     this.announceExistenceForClients();
     this.announceStateToClients();
-    this.channel.addEventListener('message', ({data}) => {
-      const {type} = data;
+    this.channel.addEventListener("message", ({ data }) => {
+      const { type } = data;
       if (type === BroadCastType.CLIENT_EXISTS_BROADCAST) {
         this.announceExistenceForClients();
       } else if (type === BroadCastType.CLIENT_STATE_UPDATE) {
@@ -107,13 +116,17 @@ export class MasterStateMessenger<S> {
   }
 
   private announceExistenceForClients() {
-    this.channel.postMessage(
-        {type: BroadCastType.MASTER_EXISTS_BROADCAST, state: this.state});
+    this.channel.postMessage({
+      type: BroadCastType.MASTER_EXISTS_BROADCAST,
+      state: this.state
+    });
   }
 
   private announceStateToClients() {
-    this.channel.postMessage(
-        {type: BroadCastType.STATE_UPDATE_BROADCAST, state: this.state});
+    this.channel.postMessage({
+      type: BroadCastType.STATE_UPDATE_BROADCAST,
+      state: this.state
+    });
   }
 }
 
@@ -131,8 +144,10 @@ export interface ClientChannelOptions extends ChannelOptions {
  * the channel in the global {@link StateMessengerChannelMap} interface.
  */
 export class ClientStateMessenger<S> {
-  private readonly callbackMap =
-      new Map<StateCallback<S>, MessageEventListener>();
+  private readonly callbackMap = new Map<
+    StateCallback<S>,
+    MessageEventListener
+  >();
   private readonly timeout: number;
   private readonly channel: Endpoint;
   private masterFound = false;
@@ -154,9 +169,13 @@ export class ClientStateMessenger<S> {
    * @param channel The channel name that is used to communicate.
    */
   static create<C extends keyof StateMessengerChannelMap>(
-      channel: C, options: ClientChannelOptions = {}) {
+    channel: C,
+    options: ClientChannelOptions = {}
+  ) {
     return new ClientStateMessenger<StateMessengerChannelMap[C]>(
-        channel, options);
+      channel,
+      options
+    );
   }
 
   /**
@@ -171,7 +190,7 @@ export class ClientStateMessenger<S> {
 
   close() {
     for (const callback of this.callbackMap.values()) {
-      this.channel.removeEventListener('message', callback);
+      this.channel.removeEventListener("message", callback);
     }
 
     this.callbackMap.clear();
@@ -185,7 +204,7 @@ export class ClientStateMessenger<S> {
    * @param callback Callback function that supplies the new state.
    */
   listen(callback: StateCallback<S>) {
-    const eventCallback = ({data}: MessageEvent) => {
+    const eventCallback = ({ data }: MessageEvent) => {
       if (data.type === BroadCastType.STATE_UPDATE_BROADCAST) {
         callback(data.state);
       }
@@ -194,7 +213,7 @@ export class ClientStateMessenger<S> {
     this.callbackMap.set(callback, eventCallback);
 
     if (this.masterFound) {
-      this.channel.addEventListener('message', eventCallback);
+      this.channel.addEventListener("message", eventCallback);
     }
   }
 
@@ -208,24 +227,27 @@ export class ClientStateMessenger<S> {
     const eventCallback = this.callbackMap.get(callback);
 
     if (eventCallback) {
-      this.channel.removeEventListener('message', eventCallback);
+      this.channel.removeEventListener("message", eventCallback);
     }
   }
 
   send(state: S) {
-    this.channel.postMessage({type: BroadCastType.CLIENT_STATE_UPDATE, state});
+    this.channel.postMessage({
+      type: BroadCastType.CLIENT_STATE_UPDATE,
+      state
+    });
   }
 
   private waitForMasterExistence() {
     return new Promise((resolve, reject) => {
-      const initialExistenceListener = ({data}: MessageEvent) => {
+      const initialExistenceListener = ({ data }: MessageEvent) => {
         if (data.type === BroadCastType.MASTER_EXISTS_BROADCAST) {
-          this.channel.removeEventListener('message', initialExistenceListener);
+          this.channel.removeEventListener("message", initialExistenceListener);
           this.masterFound = true;
 
           for (const [callback, eventCallback] of this.callbackMap.entries()) {
             callback(data.state);
-            this.channel.addEventListener('message', eventCallback);
+            this.channel.addEventListener("message", eventCallback);
           }
 
           resolve();
@@ -233,14 +255,19 @@ export class ClientStateMessenger<S> {
       };
 
       setTimeout(() => {
-        this.channel.removeEventListener('message', initialExistenceListener);
+        this.channel.removeEventListener("message", initialExistenceListener);
 
-        reject(new Error(`Timed out connecting to master. Make sure the master is available within ${
-            this.timeout}ms. If you require a longer timeout, add "timeout" in the constructor of the client.`));
+        reject(
+          new Error(
+            `Timed out connecting to master. Make sure the master is available within ${
+              this.timeout
+            }ms. If you require a longer timeout, add "timeout" in the constructor of the client.`
+          )
+        );
       }, this.timeout);
 
-      this.channel.addEventListener('message', initialExistenceListener);
-      this.channel.postMessage({type: BroadCastType.CLIENT_EXISTS_BROADCAST});
+      this.channel.addEventListener("message", initialExistenceListener);
+      this.channel.postMessage({ type: BroadCastType.CLIENT_EXISTS_BROADCAST });
     });
   }
 }

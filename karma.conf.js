@@ -67,8 +67,8 @@ module.exports = function(config) {
 
     customLaunchers: {
       ChromeWithWorkerModules: {
-        base: 'Chrome',
-        flags: ['--enable-experimental-web-platform-features']
+        base: "Chrome",
+        flags: ["--enable-experimental-web-platform-features"]
       }
     },
 

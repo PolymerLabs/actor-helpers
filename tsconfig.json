@@ -9,17 +9,12 @@
     "noUnusedParameters": true,
     "preserveConstEnums": true,
 
-    "lib": [
-      "dom",
-      "webworker",
-      "esnext"
-    ],
+    "lib": ["dom", "webworker", "esnext"],
     "outDir": "./lib",
     "baseUrl": "./",
     "skipLibCheck": true,
 
     "declaration": true,
-    "sourceMap": true,
-    "pretty": true
+    "sourceMap": true
   }
 }
