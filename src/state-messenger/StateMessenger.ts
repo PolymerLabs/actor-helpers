@@ -131,10 +131,11 @@ export interface ClientChannelOptions extends ChannelOptions {
  * the channel in the global {@link StateMessengerChannelMap} interface.
  */
 export class ClientStateMessenger<S> {
-  callbackMap = new Map<StateCallback<S>, MessageEventListener>();
-  timeout: number;
-  channel: Endpoint;
-  started = false;
+  private readonly callbackMap =
+      new Map<StateCallback<S>, MessageEventListener>();
+  private readonly timeout: number;
+  private readonly channel: Endpoint;
+  private masterFound = false;
 
   private constructor(channel: string, options: ClientChannelOptions) {
     const {
@@ -175,7 +176,7 @@ export class ClientStateMessenger<S> {
 
     this.callbackMap.clear();
     this.channel.close();
-    this.started = false;
+    this.masterFound = false;
   }
 
   /**
@@ -192,7 +193,7 @@ export class ClientStateMessenger<S> {
 
     this.callbackMap.set(callback, eventCallback);
 
-    if (this.started) {
+    if (this.masterFound) {
       this.channel.addEventListener('message', eventCallback);
     }
   }
@@ -220,7 +221,7 @@ export class ClientStateMessenger<S> {
       const initialExistenceListener = ({data}: MessageEvent) => {
         if (data.type === BroadCastType.MASTER_EXISTS_BROADCAST) {
           this.channel.removeEventListener('message', initialExistenceListener);
-          this.started = true;
+          this.masterFound = true;
 
           for (const [callback, eventCallback] of this.callbackMap.entries()) {
             callback(data.state);

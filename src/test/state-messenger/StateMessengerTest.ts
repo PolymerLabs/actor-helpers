@@ -65,6 +65,7 @@ suite('StateMessenger', () => {
     function retrieveStateMessage(client: ClientStateMessenger<State>) {
       return new Promise((resolve) => {
         const callback = (callbackState: State) => {
+          client.unlisten(callback);
           resolve(callbackState);
         };
 
@@ -146,11 +147,11 @@ suite('StateMessenger', () => {
       secondClient = ClientStateMessenger.create('channel');
 
       master.start();
-      await Promise.all([firstClient.start(), secondClient.start()]);
+      await firstClient.start();
+      await secondClient.start();
 
-      await Promise.all([
-        retrieveStateMessage(firstClient), retrieveStateMessage(secondClient)
-      ]);
+      await retrieveStateMessage(firstClient);
+      await retrieveStateMessage(secondClient);
 
       master.setState(newState);
 
@@ -198,36 +199,16 @@ suite('StateMessenger', () => {
 
       await retrieveStateMessage(firstClient);
 
+      const messages: State[] = [];
+      const callback = (state: State) => messages.push(state);
+      firstClient.listen(callback);
+
       master.setState(newState);
-
-      await new Promise(async (resolveOuterPromise, reject) => {
-        let called = 0;
-        let resolveInnerPromise: () => void;
-        const callback = () => {
-          called++;
-
-          if (called === 2) {
-            reject(new Error(
-                `Callback should not be invoked after listener is removed`));
-          } else {
-            resolveInnerPromise();
-          }
-        };
-
-        await new Promise((resolve) => {
-          resolveInnerPromise = resolve;
-          firstClient.listen(callback);
-        });
-
-        master.setState(state);
-
-        firstClient.unlisten(callback);
-
-        setTimeout(() => {
-          assert.equal(called, 1);
-          resolveOuterPromise();
-        }, TIMEOUT);
-      });
+      await retrieveStateMessage(firstClient);
+      firstClient.unlisten(callback);
+      master.setState(newState);
+      await retrieveStateMessage(firstClient);
+      assert.equal(messages.length, 1);
     });
 
     test('works when master is in worker', async () => {
@@ -254,22 +235,14 @@ suite('StateMessenger', () => {
           secondClient = ClientStateMessenger.create('channel');
 
           master.start();
-          await Promise.all([firstClient.start(), secondClient.start()]);
 
-          await new Promise((resolve) => {
-            setTimeout(async () => {
-              firstClient.send(newState);
+          await firstClient.start();
+          await secondClient.start();
+          await retrieveStateMessage(firstClient);
+          await retrieveStateMessage(secondClient);
 
-              const [firstState, secondState] = await Promise.all([
-                retrieveStateMessage(firstClient),
-                retrieveStateMessage(secondClient)
-              ]);
-              assert.deepEqual(firstState, newState);
-              assert.deepEqual(secondState, newState);
-
-              resolve();
-            }, TIMEOUT);
-          });
+          firstClient.send(newState);
+          assert.deepEqual(await retrieveStateMessage(secondClient), newState);
         });
   });
 });
