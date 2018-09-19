@@ -134,6 +134,7 @@ export class ClientStateMessenger<S> {
   callbackMap = new Map<StateCallback<S>, MessageEventListener>();
   timeout: number;
   channel: Endpoint;
+  started = false;
 
   private constructor(channel: string, options: ClientChannelOptions) {
     const {
@@ -159,7 +160,7 @@ export class ClientStateMessenger<S> {
 
   /**
    * Start the client while waiting on the master for state updates. If the
-   * master does not respond within {@link #timeout}ms, the returnging Promise
+   * master does not respond within {@link #timeout}ms, the returning Promise
    * is rejected. If you require state immediately, make sure to call {@link
    * #listen(StateCallback)} first.
    */
@@ -174,11 +175,12 @@ export class ClientStateMessenger<S> {
 
     this.callbackMap.clear();
     this.channel.close();
+    this.started = false;
   }
 
   /**
-   * Listen for any changes broadcasted by the master. Make sure that the
-   * client is started by invoking {@link #start()} first.
+   * Listen for any changes broadcasted by the master. Any state changes are
+   * retrieved after this client is started, by invoking {@link #start()} first.
    * @param callback Callback function that supplies the new state.
    */
   listen(callback: StateCallback<S>) {
@@ -189,7 +191,10 @@ export class ClientStateMessenger<S> {
     };
 
     this.callbackMap.set(callback, eventCallback);
-    this.channel.addEventListener('message', eventCallback);
+
+    if (this.started) {
+      this.channel.addEventListener('message', eventCallback);
+    }
   }
 
   /**
@@ -215,6 +220,11 @@ export class ClientStateMessenger<S> {
       const initialExistenceListener = ({data}: MessageEvent) => {
         if (data.type === BroadCastType.MASTER_EXISTS_BROADCAST) {
           this.channel.removeEventListener('message', initialExistenceListener);
+          this.started = true;
+
+          for (const callback of this.callbackMap.values()) {
+            this.channel.addEventListener('message', callback);
+          }
 
           resolve();
         }

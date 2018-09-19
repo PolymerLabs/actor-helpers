@@ -98,30 +98,28 @@ suite('StateMessenger', () => {
       master = MasterStateMessenger.create('channel', state);
       firstClient = ClientStateMessenger.create('channel');
 
-      firstClient.start();
+      const clientPromise = firstClient.start();
 
-      forceTask(() => {
+      forceTask(async () => {
         master.start();
 
-        forceTask(() => {
-          done();
-        });
+        await clientPromise;
+
+        done();
       });
     });
 
-    test('client errors when master is not available', (done) => {
+    test('client errors when master is not available', async () => {
       firstClient = ClientStateMessenger.create('channel');
 
-      (async () => {
-        try {
-          await firstClient.start();
-        } catch (e) {
-          assert.include(e.message, 'Timed out');
-          return done();
-        }
+      try {
+        await firstClient.start();
+      } catch (e) {
+        assert.include(e.message, 'Timed out');
+        return;
+      }
 
-        throw new Error(`Client should have timed out, but it did not.`);
-      })();
+      throw new Error(`Client should have timed out, but it did not.`);
     });
 
     test('client retrieves state when starting', (done) => {
