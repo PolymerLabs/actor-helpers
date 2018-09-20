@@ -13,8 +13,7 @@ actionStateMessenger.listen(action => {
     counter++;
   } else if (action === "--") {
     counter--;
-    // TODO(tvanderlippe): Remove this once the initialState for the master is optional.
-  } else if (action) {
+  } else {
     throw new Error(`Received invalid counter action: ${action}`);
   }
 
