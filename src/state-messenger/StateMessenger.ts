@@ -48,22 +48,26 @@ export interface ChannelOptions {
   broadcastChannelConstructor?: new (channel: string) => Endpoint;
 }
 
+export interface MasterChannelOptions<C extends keyof StateMessengerChannelMap>
+  extends ChannelOptions {
+  initialState?: StateMessengerChannelMap[C];
+}
+
 /**
  * Master node for state communication. Use {@link
  * MasterStateMessenger#create()} to construct an instance. For TypeScript
  * users, make sure to specify the type of state that you are communicating over
  * the channel in the global {@link StateMessengerChannelMap} interface.
  */
-export class MasterStateMessenger<S> {
-  state: S;
-  channel: Endpoint;
+export class MasterStateMessenger<C extends keyof StateMessengerChannelMap> {
+  private readonly channel: Endpoint;
+  private state?: StateMessengerChannelMap[C];
 
-  private constructor(
-    channel: string,
-    initialState: S,
-    options: ChannelOptions
-  ) {
-    const { broadcastChannelConstructor = BroadcastChannel } = options;
+  private constructor(channel: string, options: MasterChannelOptions<C>) {
+    const {
+      broadcastChannelConstructor = BroadcastChannel,
+      initialState
+    } = options;
     this.channel = new broadcastChannelConstructor(channel);
     this.state = initialState;
   }
@@ -76,10 +80,9 @@ export class MasterStateMessenger<S> {
    */
   static create<C extends keyof StateMessengerChannelMap>(
     channel: C,
-    initialState: StateMessengerChannelMap[C],
-    options: ChannelOptions = {}
+    options: MasterChannelOptions<C> = {}
   ) {
-    return new MasterStateMessenger(channel, initialState, options);
+    return new MasterStateMessenger(channel, options);
   }
 
   /**
@@ -110,16 +113,18 @@ export class MasterStateMessenger<S> {
    *     be structurally cloned. See
    *     https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm#Supported_types
    */
-  setState(state: S) {
+  setState(state: StateMessengerChannelMap[C]) {
     this.state = state;
     this.announceStateToClients();
   }
 
   private announceExistenceForClients() {
-    this.channel.postMessage({
-      type: BroadCastType.MASTER_EXISTS_BROADCAST,
-      state: this.state
-    });
+    if (this.state) {
+      this.channel.postMessage({
+        type: BroadCastType.MASTER_EXISTS_BROADCAST,
+        state: this.state
+      });
+    }
   }
 
   private announceStateToClients() {
@@ -143,9 +148,9 @@ export interface ClientChannelOptions extends ChannelOptions {
  * users, make sure to specify the type of state that you are communicating over
  * the channel in the global {@link StateMessengerChannelMap} interface.
  */
-export class ClientStateMessenger<S> {
+export class ClientStateMessenger<C extends keyof StateMessengerChannelMap> {
   private readonly callbackMap = new Map<
-    StateCallback<S>,
+    StateCallback<StateMessengerChannelMap[C]>,
     MessageEventListener
   >();
   private readonly timeout: number;
@@ -172,10 +177,7 @@ export class ClientStateMessenger<S> {
     channel: C,
     options: ClientChannelOptions = {}
   ) {
-    return new ClientStateMessenger<StateMessengerChannelMap[C]>(
-      channel,
-      options
-    );
+    return new ClientStateMessenger(channel, options);
   }
 
   /**
@@ -203,7 +205,7 @@ export class ClientStateMessenger<S> {
    * retrieved after this client is started, by invoking {@link #start()} first.
    * @param callback Callback function that supplies the new state.
    */
-  listen(callback: StateCallback<S>) {
+  listen(callback: StateCallback<StateMessengerChannelMap[C]>) {
     const eventCallback = ({ data }: MessageEvent) => {
       if (data.type === BroadCastType.STATE_UPDATE_BROADCAST) {
         callback(data.state);
@@ -223,7 +225,7 @@ export class ClientStateMessenger<S> {
    * @param callback The original callback function that was passed
    *     into {@link #listen(callback)}.
    */
-  unlisten(callback: StateCallback<S>) {
+  unlisten(callback: StateCallback<StateMessengerChannelMap[C]>) {
     const eventCallback = this.callbackMap.get(callback);
 
     if (eventCallback) {
@@ -231,7 +233,7 @@ export class ClientStateMessenger<S> {
     }
   }
 
-  send(state: S) {
+  send(state: StateMessengerChannelMap[C]) {
     this.channel.postMessage({
       type: BroadCastType.CLIENT_STATE_UPDATE,
       state
