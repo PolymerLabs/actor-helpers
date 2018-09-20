@@ -4,8 +4,8 @@
   "description": "",
   "scripts": {
     "build": "tsc",
-    "format": "prettier --write \"{src/**/*.ts,*.{js,json,md}}\"",
-    "format-check": "test $(prettier --l \"{src/**/*.ts,*.{js,json,md}}\" | wc -l) -eq 0",
+    "format": "prettier --write \"{demo/**/*.js,src/**/*.ts,*.{js,json,md}}\"",
+    "format-check": "test $(prettier --l \"{demo/**/*.js,src/**/*.ts,*.{js,json,md}}\" | wc -l) -eq 0",
     "clean": "touch lib && rm -rf lib && mkdir lib",
     "test": "npm run clean && npm run build && karma start"
   },
