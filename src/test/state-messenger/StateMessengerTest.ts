@@ -30,6 +30,7 @@ interface State {
 declare global {
   interface StateMessengerChannelMap {
     channel: State;
+    number: number;
   }
 }
 
@@ -142,7 +143,7 @@ suite("StateMessenger", () => {
       master = MasterStateMessenger.create("channel");
       firstClient = ClientStateMessenger.create("channel");
 
-      firstClient.start();
+      const clientPromise = firstClient.start();
       master.start();
 
       function assertCallback() {
@@ -150,11 +151,7 @@ suite("StateMessenger", () => {
       }
       firstClient.listen(assertCallback);
 
-      await new Promise(resolve => {
-        setTimeout(() => {
-          resolve();
-        }, TIMEOUT);
-      });
+      await clientPromise;
     });
 
     test("client can listen to state changes", async () => {
@@ -167,6 +164,22 @@ suite("StateMessenger", () => {
 
       master.setState(newState);
       assert.deepEqual(await retrieveStateMessage(firstClient), newState);
+    });
+
+    test("master can have 0 as valid state", async () => {
+      const numberMaster = MasterStateMessenger.create("number", {
+        initialState: 0
+      });
+      const numberClient = ClientStateMessenger.create("number");
+
+      numberMaster.start();
+      numberClient.start();
+      await new Promise(resolve => {
+        numberClient.listen(newNumber => {
+          assert.equal(newNumber, 0);
+          resolve();
+        });
+      });
     });
 
     test("multiple clients receive the same state changes", async () => {
