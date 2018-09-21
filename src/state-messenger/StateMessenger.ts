@@ -96,6 +96,7 @@ export class MasterStateMessenger<C extends keyof StateMessengerChannelMap> {
     this.announceStateToClients();
     this.channel.addEventListener("message", ({ data }) => {
       const { type } = data;
+
       if (type === BroadCastType.CLIENT_EXISTS_BROADCAST) {
         this.announceExistenceForClients();
       } else if (type === BroadCastType.CLIENT_STATE_UPDATE) {
@@ -127,12 +128,14 @@ export class MasterStateMessenger<C extends keyof StateMessengerChannelMap> {
   }
 
   private announceStateToClients() {
-    if (this.state !== undefined) {
-      this.channel.postMessage({
-        type: BroadCastType.STATE_UPDATE_BROADCAST,
-        state: this.state
-      });
+    if (this.state === undefined) {
+      return;
     }
+
+    this.channel.postMessage({
+      type: BroadCastType.STATE_UPDATE_BROADCAST,
+      state: this.state
+    });
   }
 }
 
