@@ -30,6 +30,7 @@ declare global {
 }
 
 export interface Endpoint {
+  name: string;
   postMessage(msg: {}): void;
   addEventListener(
     type: "message",
@@ -82,7 +83,7 @@ export class MasterStateMessenger<C extends keyof StateMessengerChannelMap> {
     channel: C,
     options: MasterChannelOptions<C> = {}
   ) {
-    return new MasterStateMessenger(channel, options);
+    return new MasterStateMessenger<C>(channel, options);
   }
 
   /**
@@ -95,6 +96,7 @@ export class MasterStateMessenger<C extends keyof StateMessengerChannelMap> {
     this.announceStateToClients();
     this.channel.addEventListener("message", ({ data }) => {
       const { type } = data;
+
       if (type === BroadCastType.CLIENT_EXISTS_BROADCAST) {
         this.announceExistenceForClients();
       } else if (type === BroadCastType.CLIENT_STATE_UPDATE) {
@@ -119,15 +121,17 @@ export class MasterStateMessenger<C extends keyof StateMessengerChannelMap> {
   }
 
   private announceExistenceForClients() {
-    if (this.state) {
-      this.channel.postMessage({
-        type: BroadCastType.MASTER_EXISTS_BROADCAST,
-        state: this.state
-      });
-    }
+    this.channel.postMessage({
+      type: BroadCastType.MASTER_EXISTS_BROADCAST,
+      state: this.state
+    });
   }
 
   private announceStateToClients() {
+    if (this.state === undefined) {
+      return;
+    }
+
     this.channel.postMessage({
       type: BroadCastType.STATE_UPDATE_BROADCAST,
       state: this.state
@@ -177,7 +181,7 @@ export class ClientStateMessenger<C extends keyof StateMessengerChannelMap> {
     channel: C,
     options: ClientChannelOptions = {}
   ) {
-    return new ClientStateMessenger(channel, options);
+    return new ClientStateMessenger<C>(channel, options);
   }
 
   /**
@@ -248,7 +252,9 @@ export class ClientStateMessenger<C extends keyof StateMessengerChannelMap> {
           this.masterFound = true;
 
           for (const [callback, eventCallback] of this.callbackMap.entries()) {
-            callback(data.state);
+            if (data.state !== undefined) {
+              callback(data.state);
+            }
             this.channel.addEventListener("message", eventCallback);
           }
 
@@ -261,7 +267,9 @@ export class ClientStateMessenger<C extends keyof StateMessengerChannelMap> {
 
         reject(
           new Error(
-            `Timed out connecting to master. Make sure the master is available within ${
+            `Timed out connecting to master on channel "${
+              this.channel.name
+            }". Make sure the master is available within ${
               this.timeout
             }ms. If you require a longer timeout, add "timeout" in the constructor of the client.`
           )
