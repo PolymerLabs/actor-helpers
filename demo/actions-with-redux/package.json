@@ -1,0 +1,14 @@
+{
+  "name": "actions-with-redux",
+  "private": true,
+  "version": "0.0.1",
+  "description": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "BSD-3-Clause",
+  "dependencies": {
+    "redux": "^4.0.0"
+  }
+}
