@@ -1,0 +1,77 @@
+<!--
+@license
+Copyright (c) 2018 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <meta name="theme-color" content="#392B33">
+  <title>EventChannel Pomodoro demo</title>
+  <style>
+  html, body {
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    height: 100%;
+  }
+  body {
+    background: #e2e2e2;
+  }
+  .modifiers {
+    display: flex;
+    width: 100%;
+  }
+  .break, .session {
+    flex: 1;
+    text-align: center;
+  }
+  .modifiers .actions {
+    display: flex;
+  }
+  .modifiers .actions > * {
+    flex: 1;
+    margin-left: 10px;
+    margin-right: 10px;
+  }
+  </style>
+</head>
+<body>
+  <h1>Pomodoro Clock</h1>
+
+  <div class="modifiers">
+    <div class="break">
+      <h2>Break length</h2>
+
+      <div class="actions">
+        <button data-action="SUBTRACT_BREAK_LENGTH">-</button>
+        <div id="break-counter">5</div>
+        <button data-action="ADD_BREAK_LENGTH">+</button>
+      </div>
+    </div>
+
+    <div class="session">
+      <h2>Session length</h2>
+
+      <div class="actions">
+        <button data-action="SUBTRACT_SESSION_LENGTH">-</button>
+        <div id="session-counter">25</div>
+        <button data-action="ADD_SESSION_LENGTH">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="timer">
+    <h2 id="timer-header">Session</h2>
+    <div id="time-left">25:00</div>
+    <button id="timer-action">Start</button>
+    <button id="timer-reset" disabled>Reset</button>
+  </div>
+  <script type="module" src="main-thread.js"></script>
+</body>
+</html>
