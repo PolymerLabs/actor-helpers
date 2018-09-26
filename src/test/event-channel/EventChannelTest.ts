@@ -42,7 +42,7 @@ suite("EventChannel", () => {
       counter: 0
     };
 
-    serviceChannel.exposeFunction(action => {
+    serviceChannel.exposeFunction("state.action", "state.update", action => {
       if (action === "DECREMENT") {
         state.counter = state.counter - 1;
       } else if (action === "INCREMENT") {
@@ -50,7 +50,7 @@ suite("EventChannel", () => {
       }
 
       return state;
-    })("state.action", "state.update");
+    });
   });
 
   teardown(() => {

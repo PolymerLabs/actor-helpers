@@ -71,30 +71,30 @@ export class EventChannel {
     InEventType extends keyof EventChannelType,
     OutEventType extends keyof EventChannelType
   >(
+    inEventType: InEventType,
+    outEventType: OutEventType,
     func: (
       input: EventChannelType[InEventType]
     ) => EventChannelType[OutEventType]
   ) {
-    return (inEventType: InEventType, outEventType: OutEventType) => {
-      const channelCallback = ({ data }: MessageEvent) => {
-        const { type, detail: inputDetail, uid } = data as Transferable<
-          InEventType
-        >;
+    const channelCallback = ({ data }: MessageEvent) => {
+      const { type, detail: inputDetail, uid } = data as Transferable<
+        InEventType
+      >;
 
-        if (type === inEventType) {
-          this.channel.postMessage({
-            type: outEventType,
-            detail: func(inputDetail),
-            uid
-          });
-        }
-      };
+      if (type === inEventType) {
+        this.channel.postMessage({
+          type: outEventType,
+          detail: func(inputDetail),
+          uid
+        });
+      }
+    };
 
-      this.channel.addEventListener("message", channelCallback);
+    this.channel.addEventListener("message", channelCallback);
 
-      return () => {
-        this.channel.removeEventListener("message", channelCallback);
-      };
+    return () => {
+      this.channel.removeEventListener("message", channelCallback);
     };
   }
 

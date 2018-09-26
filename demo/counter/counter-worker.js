@@ -4,7 +4,7 @@ const channel = new EventChannel();
 
 let counter = 0;
 
-channel.exposeFunction(action => {
+channel.exposeFunction("state.action", "state.update", action => {
   if (action === "++") {
     counter++;
   } else if (action === "--") {
@@ -14,4 +14,4 @@ channel.exposeFunction(action => {
   }
 
   return counter;
-})("state.action", "state.update");
+});
