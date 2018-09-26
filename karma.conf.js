@@ -22,7 +22,7 @@ module.exports = function(config) {
     // list of files / patterns to load in the browser
     files: [
       {
-        pattern: "lib/state-messenger/**/*.js",
+        pattern: "lib/!(test)/**/*.js",
         type: "module",
         included: false
       },
