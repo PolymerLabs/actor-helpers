@@ -1,7 +1,7 @@
 import { createStore } from "./redux.mjs";
 import { EventChannel } from "../../lib/event-channel/EventChannel.js";
 
-const channel = new EventChannel();
+const channel = new EventChannel({ channel: "Pomodoro" });
 const initialState = {
   breakCount: 5,
   sessionCount: 25,

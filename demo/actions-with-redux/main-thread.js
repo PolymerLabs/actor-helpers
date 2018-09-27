@@ -1,7 +1,7 @@
 import { EventChannel } from "../../lib/event-channel/EventChannel.js";
 
 const worker = new Worker("./redux-worker.js", { type: "module" });
-const channel = new EventChannel();
+const channel = new EventChannel({ channel: "Pomodoro" });
 
 const breakCounter = document.getElementById("break-counter");
 const sessionCounter = document.getElementById("session-counter");
