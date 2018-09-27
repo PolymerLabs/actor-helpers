@@ -18,7 +18,7 @@ export type BroadcastChannelConstructor = new (channel: string) => Endpoint;
 
 export interface ChannelOptions {
   broadcastChannelConstructor?: BroadcastChannelConstructor;
-  channel?: string;
+  channel: string;
 }
 
 declare global {
@@ -31,16 +31,11 @@ export interface Transferable<Type extends keyof EventChannelType> {
   uid?: number;
 }
 
-export const DEFAULT_CHANNEL_NAME = "EVENT_CHANNEL_DEFAULT_CHANNEL_NAME";
-
 export class EventChannel {
   private readonly channel: Endpoint;
 
-  constructor(options: ChannelOptions = {}) {
-    const {
-      broadcastChannelConstructor = BroadcastChannel,
-      channel = DEFAULT_CHANNEL_NAME
-    } = options;
+  constructor(options: ChannelOptions) {
+    const { broadcastChannelConstructor = BroadcastChannel, channel } = options;
     this.channel = new broadcastChannelConstructor(channel);
   }
 

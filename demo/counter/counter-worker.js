@@ -1,6 +1,6 @@
 import { EventChannel } from "../../lib/event-channel/EventChannel.js";
 
-const channel = new EventChannel();
+const channel = new EventChannel({ channel: "counter" });
 
 let counter = 0;
 

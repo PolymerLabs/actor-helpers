@@ -2,7 +2,7 @@ import { EventChannel } from "../../lib/event-channel/EventChannel.js";
 
 const worker = new Worker("./counter-worker.js", { type: "module" });
 const counter = document.getElementById("counter");
-const channel = new EventChannel();
+const channel = new EventChannel({ channel: "counter" });
 
 channel.addEventListener("state.update", counterValue => {
   counter.textContent = counterValue;

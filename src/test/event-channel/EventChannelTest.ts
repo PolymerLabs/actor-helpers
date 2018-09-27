@@ -36,8 +36,8 @@ suite("EventChannel", () => {
   let state: State;
 
   setup(() => {
-    serviceChannel = new EventChannel();
-    orchestratorChannel = new EventChannel();
+    serviceChannel = new EventChannel({ channel: "channel" });
+    orchestratorChannel = new EventChannel({ channel: "channel" });
     state = {
       counter: 0
     };
