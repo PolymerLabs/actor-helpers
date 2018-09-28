@@ -1,14 +1,10 @@
-import {
-  ClientStateMessenger,
-  MasterStateMessenger
-} from "../../lib/state-messenger/StateMessenger.js";
+import { EventChannel } from "../../lib/event-channel/EventChannel.js";
 
-const counterStateMessenger = MasterStateMessenger.create("counter");
-const actionStateMessenger = ClientStateMessenger.create("action");
+const channel = new EventChannel({ channel: "counter" });
 
 let counter = 0;
 
-actionStateMessenger.listen(action => {
+channel.exposeFunction("state.action", "state.update", action => {
   if (action === "++") {
     counter++;
   } else if (action === "--") {
@@ -17,8 +13,5 @@ actionStateMessenger.listen(action => {
     throw new Error(`Received invalid counter action: ${action}`);
   }
 
-  counterStateMessenger.setState(counter);
+  return counter;
 });
-
-actionStateMessenger.start();
-counterStateMessenger.start();
