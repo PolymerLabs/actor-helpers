@@ -70,9 +70,11 @@ export class EventChannel {
     outEventType: OutEventType,
     func: (
       input: EventChannelType[InEventType]
-    ) => EventChannelType[OutEventType]
+    ) =>
+      | EventChannelType[OutEventType]
+      | Promise<EventChannelType[OutEventType]>
   ) {
-    const channelCallback = ({ data }: MessageEvent) => {
+    const channelCallback = async ({ data }: MessageEvent) => {
       const { type, detail: inputDetail, uid } = data as Transferable<
         InEventType
       >;
@@ -80,7 +82,7 @@ export class EventChannel {
       if (type === inEventType) {
         this.channel.postMessage({
           type: outEventType,
-          detail: func(inputDetail),
+          detail: await func(inputDetail),
           uid
         });
       }
