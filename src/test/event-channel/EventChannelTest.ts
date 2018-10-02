@@ -27,6 +27,8 @@ declare global {
   interface EventChannelType {
     "state.action": "INCREMENT" | "DECREMENT";
     "state.update": State;
+    "state.async-action": "INCREMENT" | "DECREMENT";
+    "state.async-update": State;
   }
 }
 
@@ -51,6 +53,24 @@ suite("EventChannel", () => {
 
       return state;
     });
+
+    serviceChannel.exposeFunction(
+      "state.async-action",
+      "state.async-update",
+      async action => {
+        if (action === "DECREMENT") {
+          state.counter = state.counter - 1;
+        } else if (action === "INCREMENT") {
+          state.counter = state.counter + 1;
+        }
+
+        return new Promise((resolve: (state: State) => void) => {
+          setTimeout(() => {
+            resolve(state);
+          }, 10);
+        });
+      }
+    );
   });
 
   teardown(() => {
@@ -81,6 +101,24 @@ suite("EventChannel", () => {
     const secondResponse = await orchestratorChannel.requestResponse(
       "state.action",
       "state.update",
+      "INCREMENT"
+    );
+
+    assert.equal(secondResponse.counter, 2);
+  });
+
+  test("can work with async actions", async () => {
+    const firstResponse = await orchestratorChannel.requestResponse(
+      "state.async-action",
+      "state.async-update",
+      "INCREMENT"
+    );
+
+    assert.equal(firstResponse.counter, 1);
+
+    const secondResponse = await orchestratorChannel.requestResponse(
+      "state.async-action",
+      "state.async-update",
       "INCREMENT"
     );
 
