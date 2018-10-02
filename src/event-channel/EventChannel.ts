@@ -19,10 +19,14 @@ export type BroadcastChannelConstructor = new (channel: string) => Endpoint;
 export interface ChannelOptions {
   broadcastChannelConstructor?: BroadcastChannelConstructor;
   channel: string;
+  name: string;
 }
 
 declare global {
-  interface EventChannelType {}
+  interface EventChannelType {
+    init: never;
+    initRequest: never;
+  }
 }
 
 export interface Transferable<Type extends keyof EventChannelType> {
@@ -33,10 +37,56 @@ export interface Transferable<Type extends keyof EventChannelType> {
 
 export class EventChannel {
   private readonly channel: Endpoint;
+  private readonly serviceName: string;
 
   constructor(options: ChannelOptions) {
-    const { broadcastChannelConstructor = BroadcastChannel, channel } = options;
+    const {
+      broadcastChannelConstructor = BroadcastChannel,
+      channel,
+      name
+    } = options;
     this.channel = new broadcastChannelConstructor(channel);
+    this.serviceName = name;
+
+    this.announceInit();
+    this.channel.addEventListener("message", ({ data }) => {
+      if (data.type === "initRequest") {
+        this.announceInit();
+      }
+    });
+  }
+
+  private announceInit() {
+    this.channel.postMessage({
+      type: "init",
+      detail: this.serviceName
+    });
+  }
+
+  serviceReady(services: string[]): Promise<Array<{}>> {
+    const readyPromises = Promise.all(
+      services.map(
+        service =>
+          new Promise(resolve => {
+            const channelCallback = ({ data }: MessageEvent) => {
+              const { type, detail } = data as Transferable<"init">;
+
+              if (type === "init" && detail === service) {
+                this.channel.removeEventListener("message", channelCallback);
+                resolve();
+              }
+            };
+
+            this.channel.addEventListener("message", channelCallback);
+          })
+      )
+    );
+
+    this.channel.postMessage({
+      type: "initRequest"
+    });
+
+    return readyPromises;
   }
 
   addEventListener<EventType extends keyof EventChannelType>(

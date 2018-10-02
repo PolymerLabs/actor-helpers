@@ -38,8 +38,11 @@ suite("EventChannel", () => {
   let state: State;
 
   setup(() => {
-    serviceChannel = new EventChannel({ channel: "channel" });
-    orchestratorChannel = new EventChannel({ channel: "channel" });
+    serviceChannel = new EventChannel({ channel: "channel", name: "service" });
+    orchestratorChannel = new EventChannel({
+      channel: "channel",
+      name: "orchestrator"
+    });
     state = {
       counter: 0
     };
@@ -123,5 +126,37 @@ suite("EventChannel", () => {
     );
 
     assert.equal(secondResponse.counter, 2);
+  });
+
+  test("can wait for other service to be ready", async () => {
+    const serviceReady = serviceChannel.serviceReady(["dependency"]);
+
+    new EventChannel({ channel: "channel", name: "dependency" });
+
+    await serviceReady;
+  });
+
+  test("can wait for multiple services to be ready", async () => {
+    const serviceReady = serviceChannel.serviceReady([
+      "dependency1",
+      "dependency2"
+    ]);
+
+    new EventChannel({ channel: "channel", name: "dependency1" });
+    new EventChannel({ channel: "channel", name: "dependency2" });
+
+    await serviceReady;
+  });
+
+  test("can wait for service that was already started to be ready", async () => {
+    new EventChannel({ channel: "channel", name: "dependency" });
+
+    await new Promise(resolve => {
+      setTimeout(async () => {
+        await serviceChannel.serviceReady(["dependency"]);
+
+        resolve();
+      }, 10);
+    });
   });
 });
