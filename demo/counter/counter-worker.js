@@ -1,10 +1,10 @@
-import { EventChannel } from "../../lib/event-channel/EventChannel.js";
+import { MessageBus } from "../../lib/message-bus/MessageBus.js";
 
-const channel = new EventChannel({ channel: "counter" });
+const messageBus = MessageBus.create({ channel: "counter" });
 
 let counter = 0;
 
-channel.exposeFunction("state.action", "state.update", action => {
+messageBus.addEventListener("state.action", (action) => {
   if (action === "++") {
     counter++;
   } else if (action === "--") {
@@ -13,5 +13,5 @@ channel.exposeFunction("state.action", "state.update", action => {
     throw new Error(`Received invalid counter action: ${action}`);
   }
 
-  return counter;
+  messageBus.dispatchEvent("state.update", counter);
 });
