@@ -18,15 +18,16 @@ import { Actor, hookup, lookup } from "../../actor/Actor.js";
 declare var window: { Mocha: Mocha.MochaGlobals; assert: Chai.Assert };
 
 const { suite, setup, teardown, test } = window.Mocha;
-// const { assert } = window;
+const { assert } = window;
 
 declare global {
   interface MessageBusType {
     ignoring: "dummy";
+    late: "dummy";
   }
 }
 
-suite("EventChannel", () => {
+suite("Actor", () => {
   let receivingBus: MessageBus;
   let sendingBus: MessageBus;
 
@@ -68,5 +69,41 @@ suite("EventChannel", () => {
 
       (await lookup(sendingBus, "ignoring")).send("dummy");
     });
+  });
+
+  test("init finishes before lookup", async () => {
+    let initResolvePromise: undefined | (() => void) = undefined;
+    class LateActor extends Actor<"dummy"> {
+      init() {
+        return new Promise<void>(resolve => {
+          initResolvePromise = resolve;
+        });
+      }
+      onMessage() {}
+    }
+
+    const actor = new LateActor();
+    await hookup(receivingBus, actor, "late");
+
+    const lookupPromise = lookup(sendingBus, "late");
+
+    const promiseRace = Promise.race([
+      lookupPromise.then(() => "lookup"),
+      actor.initPromise.then(() => "init")
+    ]);
+
+    function isPromise(
+      promiseLike: undefined | (() => void)
+    ): promiseLike is () => void {
+      return promiseLike !== undefined;
+    }
+
+    setTimeout(() => {
+      if (isPromise(initResolvePromise)) {
+        initResolvePromise();
+      }
+    }, 5);
+
+    assert.equal(await promiseRace, "init");
   });
 });

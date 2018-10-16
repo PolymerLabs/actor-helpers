@@ -8,15 +8,12 @@ declare global {
 }
 
 export abstract class Actor<T, R = void> {
-  async _init(messageBus: MessageBus, actorName: ValidMessageBusName) {
-    messageBus.addEventListener("actor.lookup", lookupName => {
-      if (lookupName === actorName) {
-        messageBus.dispatchEvent("actor.lookup.exists", actorName);
-      }
-    });
+  readonly initPromise: Promise<void>;
 
-    await this.init();
+  constructor() {
+    this.initPromise = this.init();
   }
+
   abstract async init(): Promise<void>;
   abstract onMessage(message: T): R;
 }
@@ -24,11 +21,16 @@ export abstract class Actor<T, R = void> {
 export async function hookup<ActorName extends ValidMessageBusName>(
   messageBus: MessageBus,
   actor: Actor<MessageBusType[ActorName]>,
-  name: ActorName
+  actorName: ActorName
 ) {
-  await actor._init(messageBus, name);
+  messageBus.addEventListener("actor.lookup", async lookupName => {
+    if (lookupName === actorName) {
+      await actor.initPromise;
+      messageBus.dispatchEvent("actor.lookup.exists", actorName);
+    }
+  });
 
-  messageBus.addEventListener(name, detail => {
+  messageBus.addEventListener(actorName, detail => {
     actor.onMessage(detail);
   });
 }

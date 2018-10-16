@@ -10,6 +10,6 @@ messageBus.addEventListener("state.update", counterValue => {
 
 for (const button of document.getElementsByTagName("button")) {
   button.addEventListener("click", () => {
-    messageBus.dispatchEvent("state.action", button.textContent);
+    messageBus.dispatchEvent("counter", button.textContent);
   });
 }

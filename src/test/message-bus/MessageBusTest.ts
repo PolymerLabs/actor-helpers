@@ -25,7 +25,7 @@ declare global {
   }
 }
 
-suite("EventChannel", () => {
+suite("MessageBus", () => {
   let receivingBus: MessageBus;
   let sendingBus: MessageBus;
 
