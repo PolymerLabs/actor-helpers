@@ -12,12 +12,11 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { MessageBus } from "../../message-bus/MessageBus.js";
 import { Actor, hookup, lookup } from "../../actor/Actor.js";
 
 declare var window: { Mocha: Mocha.MochaGlobals; assert: Chai.Assert };
 
-const { suite, setup, teardown, test } = window.Mocha;
+const { suite, test } = window.Mocha;
 const { assert } = window;
 
 declare global {
@@ -28,19 +27,6 @@ declare global {
 }
 
 suite("Actor", () => {
-  let receivingBus: MessageBus;
-  let sendingBus: MessageBus;
-
-  setup(() => {
-    receivingBus = MessageBus.createEndpoint({ channel: "channel" });
-    sendingBus = MessageBus.createEndpoint({ channel: "channel" });
-  });
-
-  teardown(() => {
-    receivingBus.close();
-    sendingBus.close();
-  });
-
   test("can hookup an actor", async () => {
     await new Promise(async resolve => {
       class IgnoringActor extends Actor<"dummy"> {
@@ -49,9 +35,8 @@ suite("Actor", () => {
         }
       }
 
-      await hookup(receivingBus, new IgnoringActor(), "ignoring");
-
-      sendingBus.dispatchEvent("ignoring", "dummy");
+      await hookup("ignoring", new IgnoringActor());
+      (await lookup("ignoring")).send("dummy");
     });
   });
 
@@ -63,9 +48,9 @@ suite("Actor", () => {
         }
       }
 
-      await hookup(receivingBus, new IgnoringActor(), "ignoring");
+      await hookup("ignoring", new IgnoringActor());
 
-      (await lookup(sendingBus, "ignoring")).send("dummy");
+      (await lookup("ignoring")).send("dummy");
     });
   });
 
@@ -77,10 +62,10 @@ suite("Actor", () => {
         }
       }
 
-      const lookupPromise = lookup(sendingBus, "ignoring");
+      const lookupPromise = lookup("ignoring");
 
       setTimeout(async () => {
-        await hookup(receivingBus, new IgnoringActor(), "ignoring");
+        await hookup("ignoring", new IgnoringActor());
 
         lookupPromise.then(actorRef => {
           actorRef.send("dummy");
@@ -101,10 +86,10 @@ suite("Actor", () => {
     }
 
     const actor = new LateActor();
-    await hookup(receivingBus, actor, "late");
+    await hookup("late", actor);
 
     setTimeout(async () => {
-      const lookupPromise = lookup(sendingBus, "late");
+      const lookupPromise = lookup("late");
 
       const promiseRace = Promise.race([
         lookupPromise.then(() => "lookup"),

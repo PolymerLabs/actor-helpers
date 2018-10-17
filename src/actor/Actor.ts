@@ -1,4 +1,4 @@
-import { MessageBus, ValidMessageBusName } from "../message-bus/MessageBus";
+import { MessageBus, ValidMessageBusName } from "../message-bus/MessageBus.js";
 
 declare global {
   interface MessageBusType {
@@ -19,22 +19,24 @@ export abstract class Actor<T, R = void> {
 }
 
 export async function hookup<ActorName extends ValidMessageBusName>(
-  messageBus: MessageBus,
+  actorName: ActorName,
   actor: Actor<MessageBusType[ActorName]>,
-  actorName: ActorName
+  endPoint: MessageBus = MessageBus.createEndpoint({channel: actorName})
 ) {
-  messageBus.addEventListener("actor.lookup", async lookupName => {
-    if (lookupName === actorName) {
-      await actor.initPromise;
-      messageBus.dispatchEvent("actor.lookup.exists", actorName);
+  endPoint.addEventListener("actor.lookup", async lookupName => {
+    if (lookupName !== actorName) {
+      return;
     }
+
+    await actor.initPromise;
+    endPoint.dispatchEvent("actor.lookup.exists", actorName);
   });
 
-  messageBus.addEventListener(actorName, detail => {
+  endPoint.addEventListener(actorName, detail => {
     actor.onMessage(detail);
   });
 
-  messageBus.dispatchEvent("actor.lookup.exists", actorName);
+  endPoint.dispatchEvent("actor.lookup.exists", actorName);
 }
 
 export interface ActorHandle<ActorName extends ValidMessageBusName> {
@@ -42,11 +44,11 @@ export interface ActorHandle<ActorName extends ValidMessageBusName> {
 }
 
 export function lookup<ActorName extends ValidMessageBusName>(
-  messageBus: MessageBus,
-  lookupName: ActorName
+  lookupName: ActorName,
+  endPoint: MessageBus = MessageBus.createEndpoint({channel: lookupName})
 ): Promise<ActorHandle<ActorName>> {
   return new Promise(resolve => {
-    const removeEventListener = messageBus.addEventListener(
+    const removeEventListener = endPoint.addEventListener(
       "actor.lookup.exists",
       actorName => {
         if (lookupName === actorName) {
@@ -54,13 +56,13 @@ export function lookup<ActorName extends ValidMessageBusName>(
 
           resolve({
             send(detail: MessageBusType[ActorName]) {
-              messageBus.dispatchEvent(actorName, detail);
+              endPoint.dispatchEvent(actorName, detail);
             }
           });
         }
       }
     );
 
-    messageBus.dispatchEvent("actor.lookup", lookupName);
+    endPoint.dispatchEvent("actor.lookup", lookupName);
   });
 }
