@@ -44,7 +44,6 @@ suite("Actor", () => {
   test("can hookup an actor", async () => {
     await new Promise(async resolve => {
       class IgnoringActor extends Actor<"dummy"> {
-        async init() {}
         onMessage() {
           resolve();
         }
@@ -59,7 +58,6 @@ suite("Actor", () => {
   test("can lookup an actor and send a message", async () => {
     await new Promise(async resolve => {
       class IgnoringActor extends Actor<"dummy"> {
-        async init() {}
         onMessage() {
           resolve();
         }
@@ -68,6 +66,26 @@ suite("Actor", () => {
       await hookup(receivingBus, new IgnoringActor(), "ignoring");
 
       (await lookup(sendingBus, "ignoring")).send("dummy");
+    });
+  });
+
+  test("can call lookup before hookup", async () => {
+    await new Promise(async resolve => {
+      class IgnoringActor extends Actor<"dummy"> {
+        onMessage() {
+          resolve();
+        }
+      }
+
+      const lookupPromise = lookup(sendingBus, "ignoring");
+
+      setTimeout(async () => {
+        await hookup(receivingBus, new IgnoringActor(), "ignoring");
+
+        lookupPromise.then(actorRef => {
+          actorRef.send("dummy");
+        });
+      }, 5);
     });
   });
 
@@ -85,25 +103,27 @@ suite("Actor", () => {
     const actor = new LateActor();
     await hookup(receivingBus, actor, "late");
 
-    const lookupPromise = lookup(sendingBus, "late");
+    setTimeout(async () => {
+      const lookupPromise = lookup(sendingBus, "late");
 
-    const promiseRace = Promise.race([
-      lookupPromise.then(() => "lookup"),
-      actor.initPromise.then(() => "init")
-    ]);
+      const promiseRace = Promise.race([
+        lookupPromise.then(() => "lookup"),
+        actor.initPromise.then(() => "init")
+      ]);
 
-    function isPromise(
-      promiseLike: undefined | (() => void)
-    ): promiseLike is () => void {
-      return promiseLike !== undefined;
-    }
-
-    setTimeout(() => {
-      if (isPromise(initResolvePromise)) {
-        initResolvePromise();
+      function isPromise(
+        promiseLike: undefined | (() => void)
+      ): promiseLike is () => void {
+        return promiseLike !== undefined;
       }
-    }, 5);
 
-    assert.equal(await promiseRace, "init");
+      setTimeout(() => {
+        if (isPromise(initResolvePromise)) {
+          initResolvePromise();
+        }
+      }, 5);
+
+      assert.equal(await promiseRace, "init");
+    }, 5);
   });
 });

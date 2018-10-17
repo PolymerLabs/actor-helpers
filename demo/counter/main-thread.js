@@ -1,15 +1,20 @@
 import { MessageBus } from "../../lib/message-bus/MessageBus.js";
+import { Actor, hookup, lookup } from "../../lib/actor/Actor.js";
 
 const worker = new Worker("./counter-worker.js", { type: "module" });
 const counter = document.getElementById("counter");
 const messageBus = MessageBus.createEndpoint({ channel: "counter" });
 
-messageBus.addEventListener("state.update", counterValue => {
-  counter.textContent = counterValue;
-});
+class UIActor extends Actor {
+  onMessage(counterValue) {
+    counter.textContent = counterValue;
+  }
+}
+
+hookup(messageBus, new UIActor(), "state.update");
 
 for (const button of document.getElementsByTagName("button")) {
-  button.addEventListener("click", () => {
-    messageBus.dispatchEvent("counter", button.textContent);
+  button.addEventListener("click", async () => {
+    (await lookup(messageBus, "counter")).send(button.textContent);
   });
 }

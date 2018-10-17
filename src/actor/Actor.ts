@@ -14,7 +14,7 @@ export abstract class Actor<T, R = void> {
     this.initPromise = this.init();
   }
 
-  abstract async init(): Promise<void>;
+  async init(): Promise<void> {}
   abstract onMessage(message: T): R;
 }
 
@@ -33,6 +33,8 @@ export async function hookup<ActorName extends ValidMessageBusName>(
   messageBus.addEventListener(actorName, detail => {
     actor.onMessage(detail);
   });
+
+  messageBus.dispatchEvent("actor.lookup.exists", actorName);
 }
 
 export interface ActorHandle<ActorName extends ValidMessageBusName> {
