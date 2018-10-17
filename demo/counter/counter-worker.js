@@ -1,7 +1,7 @@
 import { MessageBus } from "../../lib/message-bus/MessageBus.js";
 import { Actor, hookup } from "../../lib/actor/Actor.js";
 
-const messageBus = MessageBus.create({ channel: "counter" });
+const messageBus = MessageBus.createEndpoint({ channel: "counter" });
 
 class CounterActor extends Actor {
   constructor() {

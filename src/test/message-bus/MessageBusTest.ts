@@ -30,8 +30,8 @@ suite("MessageBus", () => {
   let sendingBus: MessageBus;
 
   setup(() => {
-    receivingBus = MessageBus.create({ channel: "channel" });
-    sendingBus = MessageBus.create({ channel: "channel" });
+    receivingBus = MessageBus.createEndpoint({ channel: "channel" });
+    sendingBus = MessageBus.createEndpoint({ channel: "channel" });
   });
 
   teardown(() => {

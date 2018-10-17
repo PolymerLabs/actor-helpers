@@ -40,7 +40,7 @@ export class MessageBus {
     this.channel = new broadcastChannelConstructor(channel);
   }
 
-  static create(options: ChannelOptions) {
+  static createEndpoint(options: ChannelOptions) {
     return new MessageBus(options);
   }
 
