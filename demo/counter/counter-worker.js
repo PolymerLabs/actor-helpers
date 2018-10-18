@@ -1,7 +1,4 @@
-import { MessageBus } from "../../lib/message-bus/MessageBus.js";
-import { Actor, hookup } from "../../lib/actor/Actor.js";
-
-const messageBus = MessageBus.createEndpoint({ channel: "counter" });
+import { Actor, hookup, lookup } from "../../lib/actor/Actor.js";
 
 class CounterActor extends Actor {
   constructor() {
@@ -9,7 +6,7 @@ class CounterActor extends Actor {
     this.counter = 0;
   }
   init() {}
-  onMessage(action) {
+  async onMessage(action) {
     if (action === "++") {
       this.counter++;
     } else if (action === "--") {
@@ -18,8 +15,8 @@ class CounterActor extends Actor {
       throw new Error(`Received invalid counter action: ${action}`);
     }
 
-    messageBus.dispatchEvent("state.update", this.counter);
+    (await lookup("state.update")).send(this.counter);
   }
 }
 
-hookup(messageBus, new CounterActor(), "counter");
+hookup("counter", new CounterActor());

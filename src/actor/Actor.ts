@@ -21,7 +21,7 @@ export abstract class Actor<T, R = void> {
 export async function hookup<ActorName extends ValidMessageBusName>(
   actorName: ActorName,
   actor: Actor<MessageBusType[ActorName]>,
-  endPoint: MessageBus = MessageBus.createEndpoint({channel: actorName})
+  endPoint: MessageBus = MessageBus.createEndpoint({ channel: actorName })
 ) {
   endPoint.addEventListener("actor.lookup", async lookupName => {
     if (lookupName !== actorName) {
@@ -45,7 +45,7 @@ export interface ActorHandle<ActorName extends ValidMessageBusName> {
 
 export function lookup<ActorName extends ValidMessageBusName>(
   lookupName: ActorName,
-  endPoint: MessageBus = MessageBus.createEndpoint({channel: lookupName})
+  endPoint: MessageBus = MessageBus.createEndpoint({ channel: lookupName })
 ): Promise<ActorHandle<ActorName>> {
   return new Promise(resolve => {
     const removeEventListener = endPoint.addEventListener(
