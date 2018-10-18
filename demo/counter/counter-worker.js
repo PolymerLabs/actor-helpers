@@ -1,17 +1,22 @@
-import { EventChannel } from "../../lib/event-channel/EventChannel.js";
+import { Actor, hookup, lookup } from "../../lib/actor/Actor.js";
 
-const channel = new EventChannel({ channel: "counter" });
-
-let counter = 0;
-
-channel.exposeFunction("state.action", "state.update", action => {
-  if (action === "++") {
-    counter++;
-  } else if (action === "--") {
-    counter--;
-  } else {
-    throw new Error(`Received invalid counter action: ${action}`);
+class CounterActor extends Actor {
+  constructor() {
+    super();
+    this.counter = 0;
   }
+  init() {}
+  async onMessage(action) {
+    if (action === "++") {
+      this.counter++;
+    } else if (action === "--") {
+      this.counter--;
+    } else {
+      throw new Error(`Received invalid counter action: ${action}`);
+    }
 
-  return counter;
-});
+    (await lookup("state.update")).send(this.counter);
+  }
+}
+
+hookup("counter", new CounterActor());

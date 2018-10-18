@@ -1,15 +1,18 @@
-import { EventChannel } from "../../lib/event-channel/EventChannel.js";
+import { Actor, hookup, lookup } from "../../lib/actor/Actor.js";
 
 const worker = new Worker("./counter-worker.js", { type: "module" });
 const counter = document.getElementById("counter");
-const channel = new EventChannel({ channel: "counter" });
 
-channel.addEventListener("state.update", counterValue => {
-  counter.textContent = counterValue;
-});
+class UIActor extends Actor {
+  onMessage(counterValue) {
+    counter.textContent = counterValue;
+  }
+}
+
+hookup("state.update", new UIActor());
 
 for (const button of document.getElementsByTagName("button")) {
-  button.addEventListener("click", () => {
-    channel.dispatch("state.action", button.textContent);
+  button.addEventListener("click", async () => {
+    (await lookup("counter")).send(button.textContent);
   });
 }
