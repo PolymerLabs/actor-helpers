@@ -12,7 +12,7 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { MessageBus } from "../../message-bus/MessageBus.js";
+import { MessageBus } from "./MessageBus.js";
 
 declare var window: { Mocha: Mocha.MochaGlobals; assert: Chai.Assert };
 

@@ -22,12 +22,12 @@ module.exports = function(config) {
     // list of files / patterns to load in the browser
     files: [
       {
-        pattern: "lib/!(test)/**/*.js",
+        pattern: "lib/**/!(*_test).js",
         type: "module",
         included: false
       },
       {
-        pattern: "lib/test/**/*.js",
+        pattern: "lib/**/*_test.js",
         type: "module"
       },
       {
