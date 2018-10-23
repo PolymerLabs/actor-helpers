@@ -41,12 +41,12 @@ suite("MessageBus", () => {
 
   test("can send event to other listener", async () => {
     await new Promise(resolve => {
-      receivingBus.addEventListener("state.action", action => {
+      receivingBus.addListener("state.action", action => {
         assert.equal(action, "INCREMENT");
         resolve();
       });
 
-      sendingBus.dispatchEvent("state.action", "INCREMENT");
+      sendingBus.dispatch("state.action", "INCREMENT");
     });
   });
 });

@@ -1,20 +1,22 @@
-export interface Endpoint {
+export interface MessageChannel {
   name: string;
   postMessage(msg: {}): void;
   addEventListener(
     type: "message",
-    listener: (this: Endpoint, ev: MessageEvent) => void,
+    listener: (this: MessageChannel, ev: MessageEvent) => void,
     options?: boolean | AddEventListenerOptions
   ): void;
   removeEventListener(
     type: "message",
-    listener: (this: Endpoint, ev: MessageEvent) => void,
+    listener: (this: MessageChannel, ev: MessageEvent) => void,
     options?: boolean | EventListenerOptions
   ): void;
   close(): void;
 }
 
-export type BroadcastChannelConstructor = new (channel: string) => Endpoint;
+export type BroadcastChannelConstructor = new (
+  channel: string
+) => MessageChannel;
 
 export interface ChannelOptions {
   broadcastChannelConstructor?: BroadcastChannelConstructor;
@@ -32,8 +34,22 @@ export interface Transferable<Type extends ValidMessageBusName> {
   detail: MessageBusType[Type];
 }
 
-export class MessageBus {
-  private readonly channel: Endpoint;
+export interface Endpoint {
+  addListener<MessageType extends ValidMessageBusName>(
+    eventType: MessageType,
+    callback: (detail: MessageBusType[MessageType]) => void
+  ): () => void;
+
+  dispatch<MessageType extends ValidMessageBusName>(
+    type: MessageType,
+    detail: MessageBusType[MessageType]
+  ): void;
+
+  close(): void;
+}
+
+export class MessageBus implements Endpoint {
+  private readonly channel: MessageChannel;
 
   private constructor(options: ChannelOptions) {
     const { broadcastChannelConstructor = BroadcastChannel, channel } = options;
@@ -44,7 +60,7 @@ export class MessageBus {
     return new MessageBus(options);
   }
 
-  addEventListener<MessageType extends ValidMessageBusName>(
+  addListener<MessageType extends ValidMessageBusName>(
     eventType: MessageType,
     callback: (detail: MessageBusType[MessageType]) => void
   ) {
@@ -62,7 +78,7 @@ export class MessageBus {
     };
   }
 
-  dispatchEvent<MessageType extends ValidMessageBusName>(
+  dispatch<MessageType extends ValidMessageBusName>(
     type: MessageType,
     detail: MessageBusType[MessageType]
   ) {
