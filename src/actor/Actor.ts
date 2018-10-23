@@ -52,10 +52,21 @@ export interface ActorHandle<ActorName extends ValidActorMessageName> {
   send(detail: ActorMessageType[ActorName]): void;
 }
 
+const cache = new Map<
+  ValidActorMessageName,
+  ActorHandle<ValidActorMessageName>
+>();
+
 export function lookup<ActorName extends ValidActorMessageName>(
   lookupName: ActorName,
   endPoint: Endpoint = MessageBus.createEndpoint({ channel: lookupName })
 ): Promise<ActorHandle<ActorName>> {
+  let cachedActor = cache.get(lookupName);
+
+  if (cachedActor !== undefined) {
+    return Promise.resolve(cachedActor);
+  }
+
   return new Promise(resolve => {
     const removeEventListener = endPoint.addListener(
       "actor.lookup.exists",
@@ -63,14 +74,18 @@ export function lookup<ActorName extends ValidActorMessageName>(
         if (lookupName === actorName) {
           removeEventListener();
 
-          resolve({
+          cachedActor = {
             send(detail: ActorMessageType[ActorName]) {
               endPoint.dispatch(
                 actorName as ValidMessageBusName,
                 detail as any
               );
             }
-          });
+          };
+
+          cache.set(lookupName, cachedActor);
+
+          resolve(cachedActor);
         }
       }
     );
