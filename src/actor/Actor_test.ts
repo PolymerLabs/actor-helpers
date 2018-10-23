@@ -20,7 +20,7 @@ const { suite, test } = window.Mocha;
 const { assert } = window;
 
 declare global {
-  interface MessageBusType {
+  interface ActorMessageType {
     ignoring: "dummy";
     late: "dummy";
   }
@@ -71,6 +71,21 @@ suite("Actor", () => {
           actorRef.send("dummy");
         });
       }, 5);
+    });
+  });
+
+  test("can retrieve own actor name", async () => {
+    await new Promise(async resolve => {
+      class IgnoringActor extends Actor<"dummy"> {
+        onMessage() {
+          assert.equal(this.actorName, "ignoring");
+          resolve();
+        }
+      }
+
+      await hookup("ignoring", new IgnoringActor());
+
+      (await lookup("ignoring")).send("dummy");
     });
   });
 
