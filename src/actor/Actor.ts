@@ -139,29 +139,40 @@ const POLLING_INTERVAL = 50;
 const messageStore = new MessageStore();
 
 async function lookForMessageOfActor<ActorName extends ValidActorMessageName>(
-  name: ActorName
+  actorName: ActorName
 ) {
-  return messageStore.getMessagesForActor(name);
+  return messageStore.getMessagesForActor(actorName);
+}
+
+async function sendMessagesToActor<ActorName extends ValidActorMessageName>(
+  actorName: ActorName,
+  actor: Actor<ActorMessageType[ActorName]>
+) {
+  const messages = await lookForMessageOfActor(actorName);
+
+  for (const message of messages) {
+    try {
+      actor.onMessage(message.detail);
+    } catch (e) {
+      console.error(e);
+    }
+  }
 }
 
 function hookupWithBroadcastChannel<ActorName extends ValidActorMessageName>(
-  name: ActorName,
+  givenActorName: ActorName,
   actor: Actor<ActorMessageType[ActorName]>
 ) {
-  const channel = new BroadcastChannel(name);
+  const channel = new BroadcastChannel(givenActorName);
 
   const channelCallback = async (event: MessageEvent) => {
     const { actorName } = event.data as BroadcastChannelPing<ActorName>;
 
-    if (actorName !== name) {
+    if (actorName !== givenActorName) {
       return;
     }
 
-    const messages = await lookForMessageOfActor(name);
-
-    for (const message of messages) {
-      actor.onMessage(message.detail);
-    }
+    await sendMessagesToActor(actorName, actor);
   };
 
   channel.addEventListener("message", channelCallback);
@@ -172,17 +183,13 @@ function hookupWithBroadcastChannel<ActorName extends ValidActorMessageName>(
 }
 
 function hookupWithPolling<ActorName extends ValidActorMessageName>(
-  name: ActorName,
+  actorName: ActorName,
   actor: Actor<ActorMessageType[ActorName]>
 ) {
   let timeout = -1;
 
   const pollCallback = async () => {
-    const messages = await lookForMessageOfActor(name);
-
-    for (const message of messages) {
-      actor.onMessage(message.detail);
-    }
+    await sendMessagesToActor(actorName, actor);
 
     timeout = setTimeout(pollCallback, POLLING_INTERVAL);
   };
@@ -208,7 +215,11 @@ export async function hookup<ActorName extends ValidActorMessageName>(
 
   if (keepExistingMessages) {
     for (const message of messages) {
-      actor.onMessage(message.detail);
+      try {
+        actor.onMessage(message.detail);
+      } catch (e) {
+        console.error(e);
+      }
     }
   }
 
