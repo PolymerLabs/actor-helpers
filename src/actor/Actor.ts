@@ -1,9 +1,8 @@
 declare global {
-  interface MessageBusType {
+  interface ActorMessageType {
     "actor.lookup": ValidActorMessageName;
     "actor.lookup.exists": ValidActorMessageName;
   }
-  interface ActorMessageType extends MessageBusType {}
 }
 
 export type ValidActorMessageName = keyof ActorMessageType;
