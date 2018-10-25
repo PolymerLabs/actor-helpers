@@ -22,6 +22,7 @@ const { assert } = window;
 declare global {
   interface ActorMessageType {
     ignoring: "dummy";
+    ignoring1: "foo";
     late: "dummy";
   }
 }
@@ -43,8 +44,8 @@ suite("Actor", () => {
         }
       }
 
-      hookdown = await hookup("ignoring", new IgnoringActor());
-      await lookup("ignoring").send("dummy");
+      hookdown = await hookup("ignoring1", new IgnoringActor());
+      await lookup("ignoring1").send("foo");
     });
   });
 

@@ -49,7 +49,6 @@ class MessageStore {
       const connection = indexedDB.open("MESSAGE-STORE-ACTOR-DATABASE");
 
       connection.onerror = () => {
-        console.log(connection.error);
         reject(connection.error);
       };
 
@@ -75,10 +74,7 @@ class MessageStore {
     { purgeOnRead = true }: { purgeOnRead?: boolean } = {}
   ) {
     await this.ready;
-    const transaction = this.database.transaction(
-      "MESSAGES",
-      purgeOnRead ? "readwrite" : "readonly"
-    );
+    const transaction = this.database.transaction("MESSAGES", "readwrite");
 
     const cursorRequest = transaction.objectStore("MESSAGES").openCursor();
 
@@ -86,12 +82,11 @@ class MessageStore {
       const messages: Array<StoredMessage<ActorName>> = [];
 
       cursorRequest.onerror = () => {
-        console.log(cursorRequest.error);
         reject(cursorRequest.error);
       };
 
       cursorRequest.onsuccess = () => {
-        const cursor: IDBCursor = cursorRequest.result;
+        const cursor: IDBCursor | null = cursorRequest.result;
 
         if (cursor) {
           const value = cursor.value as StoredMessage<ActorName>;
@@ -121,7 +116,6 @@ class MessageStore {
 
     return new Promise<void>((resolve, reject) => {
       transaction.onerror = () => {
-        console.log(transaction.error);
         reject(transaction.error);
       };
 
@@ -155,7 +149,6 @@ function hookupWithBroadcastChannel<ActorName extends ValidActorMessageName>(
   const channel = new BroadcastChannel(name);
 
   const channelCallback = async (event: MessageEvent) => {
-    console.log(event);
     const { actorName } = event.data as BroadcastChannelPing<ActorName>;
 
     if (actorName !== name) {
@@ -207,8 +200,6 @@ export async function hookup<ActorName extends ValidActorMessageName>(
   actor.actorName = name;
   await actor.initPromise;
 
-  console.log("init done");
-
   const messages = await lookForMessageOfActor(name);
 
   if (!ignoreExistingMessages) {
@@ -219,7 +210,7 @@ export async function hookup<ActorName extends ValidActorMessageName>(
 
   let hookdown: () => void;
 
-  if ("BroadcastChannel" in window) {
+  if ("BroadcastChannel" in self) {
     hookdown = hookupWithBroadcastChannel(name, actor);
   } else {
     hookdown = hookupWithPolling(name, actor);
@@ -233,7 +224,7 @@ export function lookup<ActorName extends ValidActorMessageName>(
 ) {
   let channel: BroadcastChannel;
 
-  if ("BroadcastChannel" in window) {
+  if ("BroadcastChannel" in self) {
     channel = new BroadcastChannel(actorName);
   }
 
