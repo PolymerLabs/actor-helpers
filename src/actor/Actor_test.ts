@@ -30,15 +30,15 @@ declare global {
 suite("Actor", () => {
   let hookdown: () => void;
 
-  teardown(() => {
+  teardown(async () => {
     if (hookdown) {
-      hookdown();
+      await hookdown();
     }
   });
 
   test("can hookup an actor", async () => {
     await new Promise(async resolve => {
-      class IgnoringActor extends Actor<"dummy"> {
+      class IgnoringActor extends Actor<"foo"> {
         onMessage() {
           resolve();
         }
@@ -75,7 +75,7 @@ suite("Actor", () => {
 
       setTimeout(async () => {
         hookdown = await hookup("ignoring", new IgnoringActor(), {
-          ignoreExistingMessages: false
+          keepExistingMessages: true
         });
       }, 5);
     });

@@ -36,15 +36,14 @@ declare global {
 }
 
 class MessageStore {
-  private database!: IDBDatabase;
-  private readonly ready: Promise<void>;
+  private database: Promise<IDBDatabase>;
 
   constructor() {
-    this.ready = this.init();
+    this.database = this.init();
   }
 
   init() {
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<IDBDatabase>((resolve, reject) => {
       const connection = indexedDB.open("MESSAGE-STORE-ACTOR-DATABASE");
 
       connection.onerror = () => {
@@ -52,15 +51,12 @@ class MessageStore {
       };
 
       connection.onsuccess = () => {
-        this.database = connection.result;
-        resolve();
+        resolve(connection.result);
       };
 
       connection.onupgradeneeded = () => {
-        this.database = connection.result;
-
-        if (!this.database.objectStoreNames.contains("MESSAGES")) {
-          this.database.createObjectStore("MESSAGES", {
+        if (!connection.result.objectStoreNames.contains("MESSAGES")) {
+          connection.result.createObjectStore("MESSAGES", {
             autoIncrement: true
           });
         }
@@ -72,8 +68,10 @@ class MessageStore {
     name: ActorName,
     { purgeOnRead = true }: { purgeOnRead?: boolean } = {}
   ) {
-    await this.ready;
-    const transaction = this.database.transaction("MESSAGES", "readwrite");
+    const transaction = (await this.database).transaction(
+      "MESSAGES",
+      "readwrite"
+    );
 
     const cursorRequest = transaction.objectStore("MESSAGES").openCursor();
 
@@ -110,8 +108,10 @@ class MessageStore {
     recipient: ActorName,
     detail: ActorMessageType[ActorName]
   ) {
-    await this.ready;
-    const transaction = this.database.transaction("MESSAGES", "readwrite");
+    const transaction = (await this.database).transaction(
+      "MESSAGES",
+      "readwrite"
+    );
 
     return new Promise<void>((resolve, reject) => {
       transaction.onerror = () => {
@@ -191,17 +191,19 @@ function hookupWithPolling<ActorName extends ValidActorMessageName>(
   };
 }
 
+export type HookdownCallback = () => Promise<void>;
+
 export async function hookup<ActorName extends ValidActorMessageName>(
-  name: ActorName,
+  actorName: ActorName,
   actor: Actor<ActorMessageType[ActorName]>,
-  { ignoreExistingMessages = true }: { ignoreExistingMessages?: boolean } = {}
-) {
-  actor.actorName = name;
+  { keepExistingMessages = false }: { keepExistingMessages?: boolean } = {}
+): Promise<HookdownCallback> {
+  actor.actorName = actorName;
   await actor.initPromise;
 
-  const messages = await lookForMessageOfActor(name);
+  const messages = await lookForMessageOfActor(actorName);
 
-  if (!ignoreExistingMessages) {
+  if (keepExistingMessages) {
     for (const message of messages) {
       actor.onMessage(message.detail);
     }
@@ -210,12 +212,15 @@ export async function hookup<ActorName extends ValidActorMessageName>(
   let hookdown: () => void;
 
   if ("BroadcastChannel" in self) {
-    hookdown = hookupWithBroadcastChannel(name, actor);
+    hookdown = hookupWithBroadcastChannel(actorName, actor);
   } else {
-    hookdown = hookupWithPolling(name, actor);
+    hookdown = hookupWithPolling(actorName, actor);
   }
 
-  return hookdown;
+  return async () => {
+    await lookForMessageOfActor(actorName);
+    hookdown();
+  };
 }
 
 export function lookup<ActorName extends ValidActorMessageName>(
