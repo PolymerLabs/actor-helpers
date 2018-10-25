@@ -131,7 +131,10 @@ class MessageStore {
   }
 }
 
-const POLLING_INTERVAL = 100;
+// This interval needs to be strictly longer than the time it takes to paint
+// 1 frame. E.g. this value needs to be higher than 16ms. Otherwise, the
+// IDB connection will starve and run into an endless loop.
+const POLLING_INTERVAL = 50;
 
 const messageStore = new MessageStore();
 
