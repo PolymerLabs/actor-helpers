@@ -24,7 +24,9 @@ async function bootstrap() {
     const clock = new Clock();
     await hookup("clock", clock);
   } else {
-    new Worker("./worker.js");
+    const w = new Worker("./worker.js");
+    // Safari throttles/freezes worker if they don’t receive messages.
+    setInterval(() => w.postMessage(""), 3000);
   }
 }
 

@@ -20,4 +20,6 @@ async function bootstrap() {
   await hookup("clock", clock);
 }
 
+onmessage = () => {};
+
 bootstrap();
