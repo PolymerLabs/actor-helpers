@@ -240,10 +240,12 @@ export async function hookup<ActorName extends ValidActorMessageName>(
     hookdown();
   };
 }
-
+export interface ActorHandle<ActorName extends ValidActorMessageName> {
+  send(message: ActorMessageType[ActorName]): Promise<void>;
+}
 export function lookup<ActorName extends ValidActorMessageName>(
   actorName: ActorName
-) {
+): ActorHandle<ActorName> {
   let channel: BroadcastChannel;
 
   if ("BroadcastChannel" in self) {
