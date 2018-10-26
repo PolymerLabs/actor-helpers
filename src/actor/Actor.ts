@@ -12,7 +12,8 @@ export abstract class Actor<T, R = void> {
   actorName?: ValidActorMessageName;
 
   constructor() {
-    this.initPromise = this.init();
+    // Run init in the next microtask
+    this.initPromise = Promise.resolve().then(() => this.init());
   }
 
   async init(): Promise<void> {}

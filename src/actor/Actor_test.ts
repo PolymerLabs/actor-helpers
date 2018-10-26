@@ -95,4 +95,27 @@ suite("Actor", () => {
       await lookup("ignoring").send("dummy");
     });
   });
+
+  test("constructor finishes before init() is run", async () => {
+    await new Promise(async resolve => {
+      class IgnoringActor extends Actor<"dummy"> {
+        private propsProcessed = true;
+        private constructorDone: boolean;
+
+        constructor() {
+          super();
+          this.constructorDone = true;
+        }
+
+        async init() {
+          assert.isTrue(this.propsProcessed);
+          assert.isTrue(this.constructorDone);
+          resolve();
+        }
+
+        onMessage() {}
+      }
+      hookdown = await hookup("ignoring", new IgnoringActor());
+    });
+  });
 });
