@@ -12,12 +12,20 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { hookup } from "../../lib/actor/Actor.js";
-import { Clock } from "./actors/clock.js";
+import { hookup } from "westend-helpers/src/actor/Actor.js";
+import { UI } from "./actors/ui.js";
 
 async function bootstrap() {
-  const clock = new Clock();
-  await hookup("clock", clock);
+  const ui = new UI();
+  await hookup("ui", ui);
+
+  if (new URL(location.href).searchParams.has("ui-thread-only")) {
+    const { Clock } = await import("./actors/clock.js");
+    const clock = new Clock();
+    await hookup("clock", clock);
+  } else {
+    new Worker("./worker.js");
+  }
 }
 
 bootstrap();

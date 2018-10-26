@@ -12,14 +12,12 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { h, Component } from "https://unpkg.com/preact@8.3.1/dist/preact.mjs";
+import { hookup } from "westend-helpers/src/actor/Actor.js";
+import { Clock } from "./actors/clock.js";
 
-export class Dial extends Component {
-  render({time, running}) {
-    return (
-      <div className={running ? "dial running" : "dial"}>
-        <div className="dial__time">{time}</div>
-      </div>
-    );
-  }
+async function bootstrap() {
+  const clock = new Clock();
+  await hookup("clock", clock);
 }
+
+bootstrap();

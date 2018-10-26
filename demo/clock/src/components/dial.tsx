@@ -12,20 +12,19 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { hookup } from "../../lib/actor/Actor.js";
-import { UI } from "./actors/ui.js";
-import { Clock } from "./actors/clock.js";
+import { h, Component } from "preact";
 
-async function bootstrap() {
-  const ui = new UI();
-  await hookup("ui", ui);
-
-  // Option 1: run on the main thread.
-  const clock = new Clock();
-  await hookup("clock", clock);
-
-  // Option 2: run as a worker - commented out for now.
-  // new Worker("./worker.js");
+interface Props {
+  time: number;
+  running: boolean;
 }
 
-bootstrap();
+export class Dial extends Component<Props> {
+  render({ time, running }: Props) {
+    return (
+      <div className={running ? "dial running" : "dial"}>
+        <div className="dial__time">{time}</div>
+      </div>
+    );
+  }
+}
