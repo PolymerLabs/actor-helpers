@@ -83,7 +83,6 @@ export class Clock extends Actor<ClockMessage> {
   private ui = lookup("ui");
 
   async init() {
-    console.log("1", this.ui, this);
     await this.notify();
   }
 
@@ -132,7 +131,6 @@ export class Clock extends Actor<ClockMessage> {
   }
 
   async notify() {
-    console.log("2", this.ui, this);
     await this.ui.send({
       time: this.time,
       running: this.state.value === "running"
