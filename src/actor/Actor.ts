@@ -35,6 +35,9 @@ declare global {
   }
 }
 
+const MESSAGES_TABLE = "MESSAGES";
+const DATABASE_NAME = "MESSAGE-STORE-ACTOR-DATABASE";
+
 class MessageStore {
   private database: Promise<IDBDatabase>;
 
@@ -44,7 +47,7 @@ class MessageStore {
 
   init() {
     return new Promise<IDBDatabase>((resolve, reject) => {
-      const connection = indexedDB.open("MESSAGE-STORE-ACTOR-DATABASE");
+      const connection = indexedDB.open(DATABASE_NAME);
 
       connection.onerror = () => {
         reject(connection.error);
@@ -55,8 +58,8 @@ class MessageStore {
       };
 
       connection.onupgradeneeded = () => {
-        if (!connection.result.objectStoreNames.contains("MESSAGES")) {
-          connection.result.createObjectStore("MESSAGES", {
+        if (!connection.result.objectStoreNames.contains(MESSAGES_TABLE)) {
+          connection.result.createObjectStore(MESSAGES_TABLE, {
             autoIncrement: true
           });
         }
@@ -69,11 +72,11 @@ class MessageStore {
     { purgeOnRead = true }: { purgeOnRead?: boolean } = {}
   ) {
     const transaction = (await this.database).transaction(
-      "MESSAGES",
+      MESSAGES_TABLE,
       "readwrite"
     );
 
-    const cursorRequest = transaction.objectStore("MESSAGES").openCursor();
+    const cursorRequest = transaction.objectStore(MESSAGES_TABLE).openCursor();
 
     return new Promise<Array<StoredMessage<ActorName>>>((resolve, reject) => {
       const messages: Array<StoredMessage<ActorName>> = [];
@@ -109,7 +112,7 @@ class MessageStore {
     detail: ActorMessageType[ActorName]
   ) {
     const transaction = (await this.database).transaction(
-      "MESSAGES",
+      MESSAGES_TABLE,
       "readwrite"
     );
 
@@ -122,7 +125,7 @@ class MessageStore {
         resolve();
       };
 
-      transaction.objectStore("MESSAGES").add({
+      transaction.objectStore(MESSAGES_TABLE).add({
         recipient,
         detail,
         timestamp: Date.now()
