@@ -15,10 +15,6 @@ module.exports = function(config) {
     // base path that will be used to resolve all patterns (eg. files, exclude)
     basePath: "",
 
-    // frameworks to use
-    // available frameworks: https://npmjs.org/browse/keyword/karma-adapter
-    frameworks: ["mocha", "chai"],
-
     // list of files / patterns to load in the browser
     files: [
       {
@@ -63,7 +59,23 @@ module.exports = function(config) {
 
     // start these browsers
     // available browser launchers: https://npmjs.org/browse/keyword/karma-launcher
-    browsers: ["ChromeWithWorkerModules"],
+    frameworks: ["detectBrowsers", "mocha", "chai"],
+
+    detectBrowsers: {
+      postDetection(availableBrowsers) {
+        const browsers = ["ChromeWithWorkerModules"];
+
+        if (availableBrowsers.includes("Safari")) {
+          browsers.push("Safari");
+        }
+
+        if (availableBrowsers.includes("Firefox")) {
+          browsers.push("Firefox");
+        }
+
+        return browsers;
+      }
+    },
 
     customLaunchers: {
       ChromeWithWorkerModules: {
@@ -71,6 +83,15 @@ module.exports = function(config) {
         flags: ["--enable-experimental-web-platform-features"]
       }
     },
+
+    plugins: [
+      "karma-chrome-launcher",
+      "karma-firefox-launcher",
+      "karma-safari-launcher",
+      "karma-detect-browsers",
+      "karma-mocha",
+      "karma-chai"
+    ],
 
     // Continuous Integration mode
     // if true, Karma captures browsers, runs the tests and exits

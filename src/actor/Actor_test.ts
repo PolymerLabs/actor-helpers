@@ -16,27 +16,36 @@ import { Actor, hookup, lookup } from "./Actor.js";
 
 declare var window: { Mocha: Mocha.MochaGlobals; assert: Chai.Assert };
 
-const { suite, test } = window.Mocha;
+const { suite, test, teardown } = window.Mocha;
 const { assert } = window;
 
 declare global {
   interface ActorMessageType {
     ignoring: "dummy";
+    ignoring1: "foo";
     late: "dummy";
   }
 }
 
 suite("Actor", () => {
+  let hookdown: () => void;
+
+  teardown(async () => {
+    if (hookdown) {
+      await hookdown();
+    }
+  });
+
   test("can hookup an actor", async () => {
     await new Promise(async resolve => {
-      class IgnoringActor extends Actor<"dummy"> {
+      class IgnoringActor extends Actor<"foo"> {
         onMessage() {
           resolve();
         }
       }
 
-      await hookup("ignoring", new IgnoringActor());
-      (await lookup("ignoring")).send("dummy");
+      hookdown = await hookup("ignoring1", new IgnoringActor());
+      await lookup("ignoring1").send("foo");
     });
   });
 
@@ -48,9 +57,9 @@ suite("Actor", () => {
         }
       }
 
-      await hookup("ignoring", new IgnoringActor());
+      hookdown = await hookup("ignoring", new IgnoringActor());
 
-      (await lookup("ignoring")).send("dummy");
+      await lookup("ignoring").send("dummy");
     });
   });
 
@@ -62,13 +71,11 @@ suite("Actor", () => {
         }
       }
 
-      const lookupPromise = lookup("ignoring");
+      await lookup("ignoring").send("dummy");
 
       setTimeout(async () => {
-        await hookup("ignoring", new IgnoringActor());
-
-        lookupPromise.then(actorRef => {
-          actorRef.send("dummy");
+        hookdown = await hookup("ignoring", new IgnoringActor(), {
+          keepExistingMessages: true
         });
       }, 5);
     });
@@ -83,47 +90,9 @@ suite("Actor", () => {
         }
       }
 
-      await hookup("ignoring", new IgnoringActor());
+      hookdown = await hookup("ignoring", new IgnoringActor());
 
-      (await lookup("ignoring")).send("dummy");
+      await lookup("ignoring").send("dummy");
     });
-  });
-
-  test("init finishes before lookup", async () => {
-    let initResolvePromise: undefined | (() => void) = undefined;
-    class LateActor extends Actor<"dummy"> {
-      init() {
-        return new Promise<void>(resolve => {
-          initResolvePromise = resolve;
-        });
-      }
-      onMessage() {}
-    }
-
-    const actor = new LateActor();
-    await hookup("late", actor);
-
-    setTimeout(async () => {
-      const lookupPromise = lookup("late");
-
-      const promiseRace = Promise.race([
-        lookupPromise.then(() => "lookup"),
-        actor.initPromise.then(() => "init")
-      ]);
-
-      function isPromise(
-        promiseLike: undefined | (() => void)
-      ): promiseLike is () => void {
-        return promiseLike !== undefined;
-      }
-
-      setTimeout(() => {
-        if (isPromise(initResolvePromise)) {
-          initResolvePromise();
-        }
-      }, 5);
-
-      assert.equal(await promiseRace, "init");
-    }, 5);
   });
 });
