@@ -1,8 +1,5 @@
 declare global {
-  interface ActorMessageType {
-    "actor.lookup": ValidActorMessageName;
-    "actor.lookup.exists": ValidActorMessageName;
-  }
+  interface ActorMessageType {}
 }
 
 export type ValidActorMessageName = keyof ActorMessageType;
@@ -20,14 +17,9 @@ export abstract class Actor<T, R = void> {
   abstract onMessage(message: T): R;
 }
 
-interface StoredMessage<ActorName extends ValidActorMessageName> {
+interface StoredMessage {
   recipient: string;
-  detail: ActorMessageType[ActorName];
-  timestamp: Date;
-}
-
-interface BroadcastChannelPing<ActorName extends ValidActorMessageName> {
-  actorName: ActorName;
+  detail: {};
 }
 
 declare global {
@@ -36,19 +28,30 @@ declare global {
   }
 }
 
-const MESSAGES_TABLE = "MESSAGES";
-const DATABASE_NAME = "MESSAGE-STORE-ACTOR-DATABASE";
+const DB_MESSAGES = "MESSAGES";
+const DB_PREFIX = "ACTOR-DATABASE";
 
-class MessageStore {
+interface BroadcastChannelPing {
+  recipient: string;
+}
+
+class WatchableMessageStore {
   private database: Promise<IDBDatabase>;
+  private bcc?: BroadcastChannel;
+  private dbName: string;
+  private objStoreName = "list";
 
-  constructor() {
+  constructor(private name: string) {
+    this.dbName = `${DB_PREFIX}.${name}`;
+    if ("BroadcastChannel" in self) {
+      this.bcc = new BroadcastChannel(name);
+    }
     this.database = this.init();
   }
 
   init() {
     return new Promise<IDBDatabase>((resolve, reject) => {
-      const connection = indexedDB.open(DATABASE_NAME);
+      const connection = indexedDB.open(this.dbName);
 
       connection.onerror = () => {
         reject(connection.error);
@@ -59,8 +62,8 @@ class MessageStore {
       };
 
       connection.onupgradeneeded = () => {
-        if (!connection.result.objectStoreNames.contains(MESSAGES_TABLE)) {
-          connection.result.createObjectStore(MESSAGES_TABLE, {
+        if (!connection.result.objectStoreNames.contains(this.objStoreName)) {
+          connection.result.createObjectStore(this.objStoreName, {
             autoIncrement: true
           });
         }
@@ -68,19 +71,21 @@ class MessageStore {
     });
   }
 
-  async getMessagesForActor<ActorName extends ValidActorMessageName>(
-    name: ActorName,
+  async popMessages(
+    recipient: string,
     { purgeOnRead = true }: { purgeOnRead?: boolean } = {}
   ) {
     const transaction = (await this.database).transaction(
-      MESSAGES_TABLE,
+      this.objStoreName,
       "readwrite"
     );
 
-    const cursorRequest = transaction.objectStore(MESSAGES_TABLE).openCursor();
+    const cursorRequest = transaction
+      .objectStore(this.objStoreName)
+      .openCursor();
 
-    return new Promise<Array<StoredMessage<ActorName>>>((resolve, reject) => {
-      const messages: Array<StoredMessage<ActorName>> = [];
+    return new Promise<StoredMessage[]>((resolve, reject) => {
+      const messages: StoredMessage[] = [];
 
       cursorRequest.onerror = () => {
         reject(cursorRequest.error);
@@ -90,9 +95,9 @@ class MessageStore {
         const cursor: IDBCursor | null = cursorRequest.result;
 
         if (cursor) {
-          const value = cursor.value as StoredMessage<ActorName>;
+          const value = cursor.value as StoredMessage;
 
-          if (value.recipient === name) {
+          if (value.recipient === recipient) {
             messages.push(value);
 
             if (purgeOnRead) {
@@ -108,12 +113,9 @@ class MessageStore {
     });
   }
 
-  async putMessageForActor<ActorName extends ValidActorMessageName>(
-    recipient: ActorName,
-    detail: ActorMessageType[ActorName]
-  ) {
+  async pushMessage(message: StoredMessage) {
     const transaction = (await this.database).transaction(
-      MESSAGES_TABLE,
+      this.objStoreName,
       "readwrite"
     );
 
@@ -123,15 +125,72 @@ class MessageStore {
       };
 
       transaction.oncomplete = () => {
+        if (this.bcc) {
+          this.bcc.postMessage({
+            recipient: message.recipient
+          } as BroadcastChannelPing);
+        }
         resolve();
       };
 
-      transaction.objectStore(MESSAGES_TABLE).add({
-        recipient,
-        detail,
-        timestamp: Date.now()
-      });
+      transaction.objectStore(this.objStoreName).add(message);
     });
+  }
+
+  private subscribeWithBroadcastChannel(
+    recipient: string,
+    callback: (entries: StoredMessage[]) => void
+  ) {
+    const channel = new BroadcastChannel(this.name);
+
+    const channelCallback = async (evt: MessageEvent) => {
+      const ping = evt.data as BroadcastChannelPing;
+      if (ping.recipient !== recipient) {
+        return;
+      }
+      const messages = await this.popMessages(recipient);
+      if (messages.length > 0) {
+        callback(messages);
+      }
+    };
+
+    channel.addEventListener("message", channelCallback);
+
+    return () => {
+      channel.close();
+    };
+  }
+
+  private subscribeWithPolling(
+    recipient: string,
+    callback: (messages: StoredMessage[]) => void
+  ) {
+    let timeout = -1;
+
+    const pollCallback = async () => {
+      const messages = await this.popMessages(recipient);
+      if (messages.length > 0) {
+        callback(messages);
+      }
+      timeout = setTimeout(pollCallback, POLLING_INTERVAL);
+    };
+
+    timeout = setTimeout(pollCallback, POLLING_INTERVAL);
+
+    return () => {
+      self.clearTimeout(timeout);
+    };
+  }
+
+  subscribe(recipient: string, callback: (messages: StoredMessage[]) => void) {
+    let unsubscribe = null;
+
+    if ("BroadcastChannel" in self) {
+      unsubscribe = this.subscribeWithBroadcastChannel(recipient, callback);
+    } else {
+      unsubscribe = this.subscribeWithPolling(recipient, callback);
+    }
+    return unsubscribe;
   }
 }
 
@@ -140,70 +199,7 @@ class MessageStore {
 // IDB connection will starve and run into an endless loop.
 const POLLING_INTERVAL = 50;
 
-const messageStore = new MessageStore();
-
-async function lookForMessageOfActor<ActorName extends ValidActorMessageName>(
-  actorName: ActorName
-) {
-  return messageStore.getMessagesForActor(actorName);
-}
-
-async function sendMessagesToActor<ActorName extends ValidActorMessageName>(
-  actorName: ActorName,
-  actor: Actor<ActorMessageType[ActorName]>
-) {
-  const messages = await lookForMessageOfActor(actorName);
-
-  for (const message of messages) {
-    try {
-      actor.onMessage(message.detail);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-}
-
-function hookupWithBroadcastChannel<ActorName extends ValidActorMessageName>(
-  givenActorName: ActorName,
-  actor: Actor<ActorMessageType[ActorName]>
-) {
-  const channel = new BroadcastChannel(givenActorName);
-
-  const channelCallback = async (event: MessageEvent) => {
-    const { actorName } = event.data as BroadcastChannelPing<ActorName>;
-
-    if (actorName !== givenActorName) {
-      return;
-    }
-
-    await sendMessagesToActor(actorName, actor);
-  };
-
-  channel.addEventListener("message", channelCallback);
-
-  return () => {
-    channel.close();
-  };
-}
-
-function hookupWithPolling<ActorName extends ValidActorMessageName>(
-  actorName: ActorName,
-  actor: Actor<ActorMessageType[ActorName]>
-) {
-  let timeout = -1;
-
-  const pollCallback = async () => {
-    await sendMessagesToActor(actorName, actor);
-
-    timeout = setTimeout(pollCallback, POLLING_INTERVAL);
-  };
-
-  timeout = setTimeout(pollCallback, POLLING_INTERVAL);
-
-  return () => {
-    self.clearTimeout(timeout);
-  };
-}
+const messageStore = new WatchableMessageStore(DB_MESSAGES);
 
 export type HookdownCallback = () => Promise<void>;
 
@@ -215,29 +211,31 @@ export async function hookup<ActorName extends ValidActorMessageName>(
   actor.actorName = actorName;
   await actor.initPromise;
 
-  const messages = await lookForMessageOfActor(actorName);
+  const messages = await messageStore.popMessages(actorName);
 
   if (keepExistingMessages) {
     for (const message of messages) {
       try {
-        actor.onMessage(message.detail);
+        actor.onMessage(message.detail as ActorMessageType[ActorName]);
       } catch (e) {
         console.error(e);
       }
     }
   }
 
-  let hookdown: () => void;
-
-  if ("BroadcastChannel" in self) {
-    hookdown = hookupWithBroadcastChannel(actorName, actor);
-  } else {
-    hookdown = hookupWithPolling(actorName, actor);
-  }
+  const hookdown = messageStore.subscribe(actorName, messages => {
+    for (const message of messages) {
+      try {
+        actor.onMessage(message.detail as ActorMessageType[ActorName]);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  });
 
   return async () => {
-    await lookForMessageOfActor(actorName);
     hookdown();
+    await messageStore.popMessages(actorName);
   };
 }
 export interface ActorHandle<ActorName extends ValidActorMessageName> {
@@ -246,21 +244,12 @@ export interface ActorHandle<ActorName extends ValidActorMessageName> {
 export function lookup<ActorName extends ValidActorMessageName>(
   actorName: ActorName
 ): ActorHandle<ActorName> {
-  let channel: BroadcastChannel;
-
-  if ("BroadcastChannel" in self) {
-    channel = new BroadcastChannel(actorName);
-  }
-
   return {
     async send(message: ActorMessageType[ActorName]) {
-      await messageStore.putMessageForActor(actorName, message);
-
-      if (channel) {
-        channel.postMessage({
-          actorName
-        });
-      }
+      await messageStore.pushMessage({
+        recipient: actorName,
+        detail: message
+      });
     }
   };
 }
