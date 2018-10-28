@@ -156,6 +156,9 @@ class WatchableMessageStore {
 
     channel.addEventListener("message", channelCallback);
 
+    // Check for already stored messages immediately
+    channelCallback(new MessageEvent("message", { data: { recipient } }));
+
     return () => {
       channel.close();
     };
@@ -211,16 +214,8 @@ export async function hookup<ActorName extends ValidActorMessageName>(
   actor.actorName = actorName;
   await actor.initPromise;
 
-  const messages = await messageStore.popMessages(actorName);
-
-  if (keepExistingMessages) {
-    for (const message of messages) {
-      try {
-        actor.onMessage(message.detail as ActorMessageType[ActorName]);
-      } catch (e) {
-        console.error(e);
-      }
-    }
+  if (!keepExistingMessages) {
+    await messageStore.popMessages(actorName);
   }
 
   const hookdown = messageStore.subscribe(actorName, messages => {
