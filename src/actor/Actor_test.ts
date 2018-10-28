@@ -12,7 +12,7 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { Actor, hookup, lookup } from "./Actor.js";
+import { Actor, hookup, lookup, waitFor } from "./Actor.js";
 
 declare var window: { Mocha: Mocha.MochaGlobals; assert: Chai.Assert };
 
@@ -116,6 +116,36 @@ suite("Actor", () => {
         onMessage() {}
       }
       hookdown = await hookup("ignoring", new IgnoringActor());
+    });
+  });
+
+  describe("waitFor", function() {
+    test("resolves when an actor gets hooked up", async () => {
+      await new Promise(async resolve => {
+        waitFor("ignoring").then(resolve);
+
+        class IgnoringActor extends Actor<"dummy"> {
+          onMessage() {}
+        }
+        hookdown = await hookup("ignoring", new IgnoringActor());
+      });
+    });
+
+    test("resolves when an actor already is hooked up", async () => {
+      await new Promise(async resolve => {
+        const messagePromise = new Promise(async resolve => {
+          class IgnoringActor extends Actor<"dummy"> {
+            onMessage() {
+              resolve();
+            }
+          }
+          hookdown = await hookup("ignoring", new IgnoringActor());
+          (await lookup("ignoring")).send("dummy");
+        });
+        await messagePromise;
+        await waitFor("ignoring");
+        resolve();
+      });
     });
   });
 });

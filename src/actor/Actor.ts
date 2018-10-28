@@ -29,6 +29,7 @@ declare global {
 }
 
 const DB_MESSAGES = "MESSAGES";
+const DB_READY = "READY";
 const DB_PREFIX = "ACTOR-DATABASE";
 
 interface BroadcastChannelPing {
@@ -200,6 +201,7 @@ class WatchableMessageStore {
 const POLLING_INTERVAL = 50;
 
 const messageStore = new WatchableMessageStore(DB_MESSAGES);
+const readyStore = new WatchableMessageStore(DB_READY);
 
 export type HookdownCallback = () => Promise<void>;
 
@@ -233,6 +235,19 @@ export async function hookup<ActorName extends ValidActorMessageName>(
     }
   });
 
+  readyStore.subscribe(actorName, msgs => {
+    (msgs as ReadyMessage[])
+      .filter(msg => msg.detail.type === ReadyMessageType.QUERY)
+      .forEach(msg =>
+        readyStore.pushMessage({
+          recipient: msg.detail.uid!,
+          detail: {
+            type: ReadyMessageType.ANNOUNCE
+          }
+        })
+      );
+  });
+
   return async () => {
     hookdown();
     await messageStore.popMessages(actorName);
@@ -250,4 +265,46 @@ export function lookup<ActorName extends ValidActorMessageName>(
       });
     }
   };
+}
+
+enum ReadyMessageType {
+  QUERY,
+  ANNOUNCE
+}
+
+interface ReadyMessage extends StoredMessage {
+  detail: {
+    type: ReadyMessageType;
+    uid?: string;
+  };
+}
+
+function randomMaxInt() {
+  return Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+}
+
+const readyActors = new Set<ValidActorMessageName>();
+export async function waitFor<ActorName extends ValidActorMessageName>(
+  actorName: ActorName
+) {
+  if (readyActors.has(actorName)) {
+    return;
+  }
+  return new Promise(resolve => {
+    // Generate a temporary actor name whose only purpose is to wait
+    // for a response from the requested actor.
+    const uid = `${randomMaxInt()}-${randomMaxInt()}`;
+    readyStore.pushMessage({
+      recipient: actorName,
+      detail: {
+        type: ReadyMessageType.QUERY,
+        uid
+      }
+    } as ReadyMessage);
+    const hookdown = readyStore.subscribe(uid, () => {
+      readyActors.add(actorName);
+      hookdown();
+      resolve();
+    });
+  });
 }
