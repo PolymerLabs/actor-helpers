@@ -16,7 +16,7 @@ import { Actor, hookup, lookup, initializeQueues } from "./Actor.js";
 
 declare var window: { Mocha: Mocha.MochaGlobals; assert: Chai.Assert };
 
-const { suite, test, teardown } = window.Mocha;
+const { suite, test, teardown, setup } = window.Mocha;
 const { assert } = window;
 
 declare global {
@@ -29,6 +29,10 @@ declare global {
 
 suite("Actor", () => {
   let hookdown: () => void;
+
+  setup(async function() {
+    await initializeQueues();
+  });
 
   teardown(async () => {
     if (hookdown) {
@@ -120,7 +124,7 @@ suite("Actor", () => {
   describe("initializeQueues", function() {
     test("deletes old messages", async () => {
       await new Promise(async (resolve, reject) => {
-        lookup("ignoring").send("dummy");
+        await lookup("ignoring").send("dummy");
         class IgnoringActor extends Actor<"dummy"> {
           onMessage() {
             reject(Error("Message got delivered anyway"));
