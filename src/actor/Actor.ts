@@ -114,6 +114,9 @@ class WatchableMessageStore {
   }
 
   async pushMessage(message: StoredMessage) {
+    if (message.recipient === "*") {
+      throw new Error("Can’t send a message to reserved name '*'");
+    }
     const transaction = (await this.database).transaction(
       this.objStoreName,
       "readwrite"
