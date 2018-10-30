@@ -1,18 +1,25 @@
-import { Actor, hookup, lookup } from "../../lib/actor/Actor.js";
-
-const worker = new Worker("./counter-worker.js", { type: "module" });
-const counter = document.getElementById("counter");
+import { Actor, hookup, lookup, initializeQueues } from "../../lib/Actor.js";
 
 class UIActor extends Actor {
+  constructor() {
+    super();
+    this.counter = document.getElementById("counter");
+  }
   onMessage(counterValue) {
-    counter.textContent = counterValue;
+    this.counter.textContent = counterValue;
   }
 }
 
-hookup("state.update", new UIActor());
+async function bootstrap() {
+  await initializeQueues();
 
-for (const button of document.getElementsByTagName("button")) {
-  button.addEventListener("click", async () => {
-    (await lookup("counter")).send(button.textContent);
-  });
+  hookup("state.update", new UIActor());
+  new Worker("./counter-worker.js", { type: "module" });
+
+  for (const button of document.getElementsByTagName("button")) {
+    button.addEventListener("click", async () => {
+      lookup("counter").send(button.textContent);
+    });
+  }
 }
+bootstrap();

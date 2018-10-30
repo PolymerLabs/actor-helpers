@@ -1,4 +1,4 @@
-import { Actor, hookup, lookup } from "../../lib/actor/Actor.js";
+import { Actor, hookup, lookup } from "../../lib/Actor.js";
 
 class CounterActor extends Actor {
   constructor() {
