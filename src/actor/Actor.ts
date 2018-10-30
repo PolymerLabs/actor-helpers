@@ -73,7 +73,7 @@ class WatchableMessageStore {
 
   async popMessages(
     recipient: string,
-    { purgeOnRead = true }: { purgeOnRead?: boolean } = {}
+    { keepMessage = false }: { keepMessage?: boolean } = {}
   ) {
     const transaction = (await this.database).transaction(
       this.objStoreName,
@@ -97,10 +97,10 @@ class WatchableMessageStore {
         if (cursor) {
           const value = cursor.value as StoredMessage;
 
-          if (value.recipient === recipient) {
+          if (value.recipient === recipient || recipient === "*") {
             messages.push(value);
 
-            if (purgeOnRead) {
+            if (!keepMessage) {
               cursor.delete();
             }
           }
@@ -114,6 +114,9 @@ class WatchableMessageStore {
   }
 
   async pushMessage(message: StoredMessage) {
+    if (message.recipient === "*") {
+      throw new Error("Can’t send a message to reserved name '*'");
+    }
     const transaction = (await this.database).transaction(
       this.objStoreName,
       "readwrite"
@@ -209,12 +212,12 @@ export type HookdownCallback = () => Promise<void>;
 export async function hookup<ActorName extends ValidActorMessageName>(
   actorName: ActorName,
   actor: Actor<ActorMessageType[ActorName]>,
-  { keepExistingMessages = false }: { keepExistingMessages?: boolean } = {}
+  { purgeExistingMessages = false }: { purgeExistingMessages?: boolean } = {}
 ): Promise<HookdownCallback> {
   actor.actorName = actorName;
   await actor.initPromise;
 
-  if (!keepExistingMessages) {
+  if (purgeExistingMessages) {
     await messageStore.popMessages(actorName);
   }
 
@@ -247,4 +250,8 @@ export function lookup<ActorName extends ValidActorMessageName>(
       });
     }
   };
+}
+
+export async function initializeQueues() {
+  await messageStore.popMessages("*");
 }

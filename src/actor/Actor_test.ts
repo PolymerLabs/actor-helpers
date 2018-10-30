@@ -12,11 +12,11 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { Actor, hookup, lookup } from "./Actor.js";
+import { Actor, hookup, lookup, initializeQueues } from "./Actor.js";
 
 declare var window: { Mocha: Mocha.MochaGlobals; assert: Chai.Assert };
 
-const { suite, test, teardown } = window.Mocha;
+const { suite, test, teardown, setup } = window.Mocha;
 const { assert } = window;
 
 declare global {
@@ -29,6 +29,10 @@ declare global {
 
 suite("Actor", () => {
   let hookdown: () => void;
+
+  setup(async function() {
+    await initializeQueues();
+  });
 
   teardown(async () => {
     if (hookdown) {
@@ -74,10 +78,8 @@ suite("Actor", () => {
       await lookup("ignoring").send("dummy");
 
       setTimeout(async () => {
-        hookdown = await hookup("ignoring", new IgnoringActor(), {
-          keepExistingMessages: true
-        });
-      }, 5);
+        hookdown = await hookup("ignoring", new IgnoringActor());
+      }, 100);
     });
   });
 
@@ -116,6 +118,22 @@ suite("Actor", () => {
         onMessage() {}
       }
       hookdown = await hookup("ignoring", new IgnoringActor());
+    });
+  });
+
+  describe("initializeQueues", function() {
+    test("deletes old messages", async () => {
+      await new Promise(async (resolve, reject) => {
+        await lookup("ignoring").send("dummy");
+        class IgnoringActor extends Actor<"dummy"> {
+          onMessage() {
+            reject(Error("Message got delivered anyway"));
+          }
+        }
+        await initializeQueues();
+        hookdown = await hookup("ignoring", new IgnoringActor());
+        setTimeout(resolve, 100);
+      });
     });
   });
 });
