@@ -17,7 +17,7 @@ async function bootstrap() {
   new Worker("./counter-worker.js", { type: "module" });
 
   for (const button of document.getElementsByTagName("button")) {
-    button.addEventListener("click", async () => {
+    button.addEventListener("click", () => {
       lookup("counter").send(button.textContent);
     });
   }
