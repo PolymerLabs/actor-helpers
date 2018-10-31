@@ -12,10 +12,11 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { hookup } from "westend-helpers/src/actor/Actor.js";
+import { hookup, initializeQueues } from "westend-helpers/src/actor/Actor.js";
 import { UI } from "./actors/ui.js";
 
 async function bootstrap() {
+  await initializeQueues();
   const ui = new UI();
   await hookup("ui", ui);
 
