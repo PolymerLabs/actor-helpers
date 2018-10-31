@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "strict": true,
+    "lib": ["dom", "dom.iterable", "esnext", "webworker"],
+    "moduleResolution": "node",
+    "baseUrl": "./"
+  }
+}

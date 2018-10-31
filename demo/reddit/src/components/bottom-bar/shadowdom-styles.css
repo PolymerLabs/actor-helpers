@@ -1,0 +1,37 @@
+/**
+ * @license
+ * Copyright (c) 2018 The Polymer Project Authors. All rights reserved.
+ * This code may only be used under the BSD style license found at
+ * http://polymer.github.io/LICENSE.txt
+ * The complete set of authors may be found at
+ * http://polymer.github.io/AUTHORS.txt
+ * The complete set of contributors may be found at
+ * http://polymer.github.io/CONTRIBUTORS.txt
+ * Code distributed by Google as part of the polymer project is also
+ * subject to an additional IP rights grant found at
+ * http://polymer.github.io/PATENTS.txt
+ */
+
+:host {
+  height: 100vh;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  position: fixed;
+  bottom: -100vh;
+  will-change: transform;
+  z-index: 9;
+
+  display: flex;
+  flex-direction: column;
+}
+
+slot[name="bar"]::slotted(*) {
+  flex-shrink: 0;
+  flex-grow: 0;
+}
+
+slot:not([name="bar"])::slotted(*) {
+  flex-shrink: 1;
+  flex-grow: 1;
+}

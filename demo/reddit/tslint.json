@@ -1,0 +1,21 @@
+{
+  "defaultSeverity": "error",
+  "extends": ["tslint:recommended"],
+  "jsRules": {
+    "trailing-comma": false
+  },
+  "rules": {
+    "interface-name": [true, "never-prefix"],
+    "no-console": false,
+    "no-shadowed-variable": false,
+    "arrow-parens": false,
+    "trailing-comma": false,
+    "member-access": [true, "no-public"],
+    "callable-types": false,
+    "only-arrow-functions": false
+  },
+  "rulesDirectory": [],
+  "linterOptions": {
+    "exclude": ["./**/node_modules/**"]
+  }
+}
