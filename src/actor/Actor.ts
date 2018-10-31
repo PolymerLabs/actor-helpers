@@ -1,11 +1,71 @@
+import { WatchableMessageStore } from "../watchable-message-store/WatchableMessageStore.js";
+
 declare global {
+  /**
+   * The type of messages that can be sent to an actor. To define the type
+   * of messages actor with name "ui" could receive,
+   * define the following in your TS file:
+   *
+   *    interface State {
+   *      count: number;
+   *    }
+   *
+   *    declare global {
+   *      interface ActorMessageType {
+   *        ui: State;
+   *      }
+   *    }
+   */
   interface ActorMessageType {}
 }
 
+/**
+ * All actor names that are defined in {@link ActorMessageType}.
+ */
 export type ValidActorMessageName = keyof ActorMessageType;
 
+/**
+ * A base-class to define an Actor type. It requires all sub-classes to
+ * implement the {@link Actor#onMessage} callback.
+ *
+ *    class MyActor extends Actor<MessageType> {
+ *      onMessage(message: MessageType) {
+ *        console.log(`Actor ${this.actorName} I received message: ${message}`);
+ *      }
+ *    }
+ *
+ * If you would like to perform some initialization logic, implement the
+ * optional {@link Actor#init} callback.
+ *
+ *    class MyActor extends Actor<MessageType> {
+ *      count: number;
+ *
+ *      init() {
+ *        this.count = 0;
+ *      }
+ *
+ *      onMessage(message: MessageType) {
+ *        this.count++;
+ *        console.log(`Actor ${this.actorName} received message number ${this.count}: ${message}`);
+ *      }
+ *    }
+ *
+ * If you want to know the actorName that this actor is assigned to in your
+ * application, you can use `actorName`. This field is accessible only after
+ * the {@link hookup} has been called.
+ *
+ * Users of this actor generally should not use {@link Actor#initPromise}. This
+ * is an internal implementation detail for {@link hookup}.
+ */
 export abstract class Actor<T, R = void> {
+  /**
+   * Do not use, it is an internal implementation detail used in {@link hookup}.
+   */
   readonly initPromise: Promise<void>;
+
+  /**
+   * The name given to this actor by calling {@link hookup}.
+   */
   actorName?: ValidActorMessageName;
 
   constructor() {
@@ -13,202 +73,85 @@ export abstract class Actor<T, R = void> {
     this.initPromise = Promise.resolve().then(() => this.init());
   }
 
+  /**
+   * Init callback that can be used to perform some initialization logic.
+   * This method is invoked in the constructor of an {@link Actor} and should
+   * not be called by any user of the actor subclass.
+   *
+   * @return A promise which resolves once this actor is initialized.
+   */
   async init(): Promise<void> {}
+
+  /**
+   * Callback to process a message that was sent to this actor.
+   *
+   * Note that this callback is synchronous. This means that if an actor needs
+   * to perform expensive work (for example, encode an image), you need to
+   * perform this work asynchronously.
+   *
+   *    class MyActor extends Actor<MessageType> {
+   *      onMessage(message: MessageType) {
+   *        Promise.resolve().then(() => this.performExpensiveWork());
+   *      }
+   *
+   *      async performExpensiveWork() {
+   *        // Some long running task here
+   *      }
+   *    }
+   *
+   *
+   * For TypeScript users, this requires the specification
+   * of the {@link ActorMessageType}:
+   *
+   *    interface State {
+   *      count: number;
+   *    }
+   *
+   *    declare global {
+   *      interface ActorMessageType {
+   *        ui: State;
+   *      }
+   *    }
+   *
+   * @param message The message that was sent to this actor.
+   */
   abstract onMessage(message: T): R;
 }
 
-interface StoredMessage {
-  recipient: string;
-  detail: {};
-}
+const messageStore = new WatchableMessageStore("ACTOR-MESSAGES");
 
-declare global {
-  interface IDBCursor {
-    value: any;
-  }
-}
-
-const DB_MESSAGES = "MESSAGES";
-const DB_PREFIX = "ACTOR-DATABASE";
-
-interface BroadcastChannelPing {
-  recipient: string;
-}
-
-class WatchableMessageStore {
-  private database: Promise<IDBDatabase>;
-  private bcc?: BroadcastChannel;
-  private dbName: string;
-  private objStoreName = "list";
-
-  constructor(private name: string) {
-    this.dbName = `${DB_PREFIX}.${name}`;
-    if ("BroadcastChannel" in self) {
-      this.bcc = new BroadcastChannel(name);
-    }
-    this.database = this.init();
-  }
-
-  init() {
-    return new Promise<IDBDatabase>((resolve, reject) => {
-      const connection = indexedDB.open(this.dbName);
-
-      connection.onerror = () => {
-        reject(connection.error);
-      };
-
-      connection.onsuccess = () => {
-        resolve(connection.result);
-      };
-
-      connection.onupgradeneeded = () => {
-        if (!connection.result.objectStoreNames.contains(this.objStoreName)) {
-          connection.result.createObjectStore(this.objStoreName, {
-            autoIncrement: true
-          });
-        }
-      };
-    });
-  }
-
-  async popMessages(
-    recipient: string,
-    { keepMessage = false }: { keepMessage?: boolean } = {}
-  ) {
-    const transaction = (await this.database).transaction(
-      this.objStoreName,
-      "readwrite"
-    );
-
-    const cursorRequest = transaction
-      .objectStore(this.objStoreName)
-      .openCursor();
-
-    return new Promise<StoredMessage[]>((resolve, reject) => {
-      const messages: StoredMessage[] = [];
-
-      cursorRequest.onerror = () => {
-        reject(cursorRequest.error);
-      };
-
-      cursorRequest.onsuccess = () => {
-        const cursor: IDBCursor | null = cursorRequest.result;
-
-        if (cursor) {
-          const value = cursor.value as StoredMessage;
-
-          if (value.recipient === recipient || recipient === "*") {
-            messages.push(value);
-
-            if (!keepMessage) {
-              cursor.delete();
-            }
-          }
-
-          cursor.continue();
-        } else {
-          resolve(messages);
-        }
-      };
-    });
-  }
-
-  async pushMessage(message: StoredMessage) {
-    if (message.recipient === "*") {
-      throw new Error("Can’t send a message to reserved name '*'");
-    }
-    const transaction = (await this.database).transaction(
-      this.objStoreName,
-      "readwrite"
-    );
-
-    return new Promise<void>((resolve, reject) => {
-      transaction.onerror = () => {
-        reject(transaction.error);
-      };
-
-      transaction.oncomplete = () => {
-        if (this.bcc) {
-          this.bcc.postMessage({
-            recipient: message.recipient
-          } as BroadcastChannelPing);
-        }
-        resolve();
-      };
-
-      transaction.objectStore(this.objStoreName).add(message);
-    });
-  }
-
-  private subscribeWithBroadcastChannel(
-    recipient: string,
-    callback: (entries: StoredMessage[]) => void
-  ) {
-    const channel = new BroadcastChannel(this.name);
-
-    const channelCallback = async (evt: MessageEvent) => {
-      const ping = evt.data as BroadcastChannelPing;
-      if (ping.recipient !== recipient) {
-        return;
-      }
-      const messages = await this.popMessages(recipient);
-      if (messages.length > 0) {
-        callback(messages);
-      }
-    };
-
-    channel.addEventListener("message", channelCallback);
-
-    // Check for already stored messages immediately
-    channelCallback(new MessageEvent("message", { data: { recipient } }));
-
-    return () => {
-      channel.close();
-    };
-  }
-
-  private subscribeWithPolling(
-    recipient: string,
-    callback: (messages: StoredMessage[]) => void
-  ) {
-    let timeout = -1;
-
-    const pollCallback = async () => {
-      const messages = await this.popMessages(recipient);
-      if (messages.length > 0) {
-        callback(messages);
-      }
-      timeout = setTimeout(pollCallback, POLLING_INTERVAL);
-    };
-
-    timeout = setTimeout(pollCallback, POLLING_INTERVAL);
-
-    return () => {
-      self.clearTimeout(timeout);
-    };
-  }
-
-  subscribe(recipient: string, callback: (messages: StoredMessage[]) => void) {
-    let unsubscribe = null;
-
-    if ("BroadcastChannel" in self) {
-      unsubscribe = this.subscribeWithBroadcastChannel(recipient, callback);
-    } else {
-      unsubscribe = this.subscribeWithPolling(recipient, callback);
-    }
-    return unsubscribe;
-  }
-}
-
-// This interval needs to be strictly longer than the time it takes to paint
-// 1 frame. E.g. this value needs to be higher than 16ms. Otherwise, the
-// IDB connection will starve and run into an endless loop.
-const POLLING_INTERVAL = 50;
-
-const messageStore = new WatchableMessageStore(DB_MESSAGES);
-
+/**
+ * The callback-type which is returned by {@link hookup} that can be used
+ * to remove an {@link Actor} from the system.
+ */
 export type HookdownCallback = () => Promise<void>;
 
+/**
+ * Hookup an {@link Actor} with a name into system. In this case, the actor
+ * will initialize and respond to any messages designated for `actorName`.
+ *
+ * For example, if you have an actor that can work with a user interface
+ * (typically the DOM) then perform the following:
+ *
+ *    hookup("ui", new UIActor());
+ *
+ * In general, the system of actors should be asynchronous. This means that
+ * messages can arrive at any time and actors are hooked up in any arbitrary
+ * order. To that end, you can not rely on specific timing when an actor is
+ * available. However, you can `await` the `hookup` invocation if you want to
+ * be certain that the actor is now available in the system:
+ *
+ *    await hookup("ui", new UIActor());
+ *
+ * If you would like to send a message to the "ui" actor, use {@link lookup}.
+ *
+ * @param actorName The name this actor will listen to.
+ * @param actor The actor implementation that can process messages.
+ * @param purgeExistingMessages Whether any messages that arrived before this
+ *    actor was ready should be discarded.
+ * @return A promise which, once resolved, provides a callback that can be
+ *    invoked to remove this actor from the system.
+ */
 export async function hookup<ActorName extends ValidActorMessageName>(
   actorName: ActorName,
   actor: Actor<ActorMessageType[ActorName]>,
@@ -236,9 +179,60 @@ export async function hookup<ActorName extends ValidActorMessageName>(
     await messageStore.popMessages(actorName);
   };
 }
+
+/**
+ * An object that describes a convenience method to send a message to a specific
+ * actor. Use {@link lookup} to obtain a handle to a specific actor.
+ */
 export interface ActorHandle<ActorName extends ValidActorMessageName> {
+  /**
+   * Send a message to this specific actor.
+   *
+   * @param message The message to send to this actor.
+   */
   send(message: ActorMessageType[ActorName]): Promise<void>;
 }
+
+/**
+ * Lookup an actor in the system with the provided `actorName`. This requires
+ * the receiving actor to be hooked up with {@link hookup}. If the actor
+ * is not yet hooked up in the system, any message that is sent to this actor
+ * will be processed once the receiving actor has been initialized.
+ *
+ *    lookup("ui").send({ count: 5 });
+ *
+ * If you want to wait until the message has been stored, then `await` the
+ * `send` invocation:
+ *
+ *    await lookup("ui").send({ count: 5 });
+ *
+ * Note that this does not wait for the receiving actor to actually receive
+ * and process the message. Instead, it will only ensure that the message
+ * has been stored and is ready to be received by the receiving actor.
+ *
+ * You can use the resulting {@link ActorHandle} as a convenience in your actor.
+ * For example, you can obtain a handle in the {@link Actor#init} callback
+ * and send messages in your {@link Actor#onMessage} callback:
+ *
+ *    class MyActor extends Actor<MessageType> {
+ *      count: number;
+ *      uiActor: ActorHandle<"ui">
+ *
+ *      init() {
+ *        this.count = 0;
+ *        this.uiActor = lookup("ui");
+ *      }
+ *
+ *      onMessage(message: MessageType) {
+ *        this.count++;
+ *        console.log(`I received message number ${this.count}: ${message}`);
+ *        this.uiActor.send({ count: this.count });
+ *      }
+ *    }
+ *
+ * @param actorName The name that was given to an actor in the system.
+ * @return A convenience handle to send messages directly to a specific actor.
+ */
 export function lookup<ActorName extends ValidActorMessageName>(
   actorName: ActorName
 ): ActorHandle<ActorName> {
@@ -252,6 +246,29 @@ export function lookup<ActorName extends ValidActorMessageName>(
   };
 }
 
+/**
+ * Remove all existing messages that are sent to any actor. Generally, this
+ * method should only be called once, when the application is initialized.
+ *
+ * We recommend calling this method in your main script once and before any
+ * actor is created and hooked up in the system. For example:
+ *
+ *    // index.js:
+ *    async function bootstrap() {
+ *      // Remove any messages before hooking up any actor
+ *      await initializeQueues();
+ *      // We have removed any existing messages. Hook up the UI Actor now
+ *      hookup("ui", new UIActor());
+ *      // Also, spawn a new worker which will consequently hook up additional
+ *      // state and database actors in the system.
+ *      new Worker("worker.js");
+ *    }
+ *    bootstrap();
+ *
+ *    // worker.js
+ *    hookup("state", new StateActor());
+ *    hookup("database", new DatabaseActor());
+ */
 export async function initializeQueues() {
   await messageStore.popMessages("*");
 }
