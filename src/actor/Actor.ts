@@ -63,7 +63,7 @@ export type ValidActorMessageName = keyof ActorMessageType;
  * Users of this actor generally should not use {@link Actor#initPromise}. This
  * is an internal implementation detail for {@link hookup}.
  */
-export abstract class Actor<T, R = void> {
+export abstract class Actor<T> {
   /**
    * Do not use, it is an internal implementation detail used in {@link hookup}.
    */
@@ -96,7 +96,9 @@ export abstract class Actor<T, R = void> {
    *
    * Note that this callback is synchronous. This means that if an actor needs
    * to perform expensive work (for example, encode an image), you need to
-   * perform this work asynchronously.
+   * perform this work asynchronously. You can make `onMessage` asynchronous
+   * if you want to use `await`. Note that message delivery will *not* be
+   * halted until `onMessage` as completed.
    *
    *    class MyActor extends Actor<MessageType> {
    *      onMessage(message: MessageType) {
@@ -124,7 +126,7 @@ export abstract class Actor<T, R = void> {
    *
    * @param message The message that was sent to this actor.
    */
-  abstract onMessage(message: T): R;
+  abstract onMessage(message: T): void;
 }
 
 const messageStore = new WatchableMessageStore("ACTOR-MESSAGES");
@@ -234,18 +236,18 @@ export interface ActorHandle<ActorName extends ValidActorMessageName> {
  * and send messages in your {@link Actor#onMessage} callback:
  *
  *    class MyActor extends Actor<MessageType> {
- *      count: number;
- *      uiActor: ActorHandle<"ui">
+ *      count?: number;
+ *      uiActor?: ActorHandle<"ui">;
  *
- *      init() {
+ *      async init() {
  *        this.count = 0;
  *        this.uiActor = lookup("ui");
  *      }
  *
  *      onMessage(message: MessageType) {
- *        this.count++;
+ *        this.count!++;
  *        console.log(`I received message number ${this.count}: ${message}`);
- *        this.uiActor.send({ count: this.count });
+ *        this.uiActor!.send({ count: this.count });
  *      }
  *    }
  *
