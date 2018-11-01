@@ -20,6 +20,7 @@ import { pluralize } from "../../utils/lang-helpers.js";
 
 import { download } from "../../icons/download.js";
 import { offline } from "../../icons/offline.js";
+import {styles} from "./styles.js";
 
 function downloadThread() {}
 
@@ -31,6 +32,7 @@ export const renderer = (view: View) => {
   const { cachedAt } = view.subreddit;
 
   return html`
+${styles}
 <div class="view subreddit">
   ${view.subreddit.items.map(item => {
     const {

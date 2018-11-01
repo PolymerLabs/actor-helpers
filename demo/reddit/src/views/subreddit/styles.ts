@@ -12,6 +12,10 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
+import { html } from "lit-html";
+
+export const styles = html`
+<style>
 :root {
   --badge-size: 0.6;
   --badge-icon-size: 0.8;
@@ -127,4 +131,5 @@
 .subreddit .item[downloading] .dlbadge.downloading {
   visibility: visible;
 }
-
+</style>
+`;
