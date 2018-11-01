@@ -15,6 +15,10 @@ declare global {
    *        ui: State;
    *      }
    *    }
+   *
+   * If an actor can receive multiple types of messages,
+   * [a discriminated union](https://www.typescriptlang.org/docs/handbook/advanced-types.html#discriminated-unions)
+   * has proven useful.
    */
   interface ActorMessageType {}
 }
@@ -38,10 +42,12 @@ export type ValidActorMessageName = keyof ActorMessageType;
  * optional {@link Actor#init} callback.
  *
  *    class MyActor extends Actor<MessageType> {
+ *      stockData: StockData;
  *      count: number;
  *
- *      init() {
+ *      async init() {
  *        this.count = 0;
+ *        this.stockData = await (await fetch("/stockdata.json")).json()
  *      }
  *
  *      onMessage(message: MessageType) {
@@ -61,7 +67,7 @@ export abstract class Actor<T, R = void> {
   /**
    * Do not use, it is an internal implementation detail used in {@link hookup}.
    */
-  readonly initPromise: Promise<void>;
+  private readonly initPromise: Promise<void>;
 
   /**
    * The name given to this actor by calling {@link hookup}.
@@ -77,6 +83,9 @@ export abstract class Actor<T, R = void> {
    * Init callback that can be used to perform some initialization logic.
    * This method is invoked in the constructor of an {@link Actor} and should
    * not be called by any user of the actor subclass.
+   *
+   * Note that no messages will be delivered until the resulting promise
+   * is resolved.
    *
    * @return A promise which resolves once this actor is initialized.
    */
@@ -158,6 +167,7 @@ export async function hookup<ActorName extends ValidActorMessageName>(
   { purgeExistingMessages = false }: { purgeExistingMessages?: boolean } = {}
 ): Promise<HookdownCallback> {
   actor.actorName = actorName;
+  // @ts-ignore
   await actor.initPromise;
 
   if (purgeExistingMessages) {
@@ -188,6 +198,15 @@ export interface ActorHandle<ActorName extends ValidActorMessageName> {
   /**
    * Send a message to this specific actor.
    *
+   * If you want to wait until the message has been queued up, then `await` the
+   * `send` invocation:
+   *
+   *    await lookup("ui").send({ count: 5 });
+   *
+   * Note that this does not wait for the receiving actor to actually receive
+   * and process the message. Instead, it will only ensure that the message
+   * has been stored and is ready to be received by the receiving actor.
+   *
    * @param message The message to send to this actor.
    */
   send(message: ActorMessageType[ActorName]): Promise<void>;
@@ -195,20 +214,20 @@ export interface ActorHandle<ActorName extends ValidActorMessageName> {
 
 /**
  * Lookup an actor in the system with the provided `actorName`. This requires
- * the receiving actor to be hooked up with {@link hookup}. If the actor
- * is not yet hooked up in the system, any message that is sent to this actor
- * will be processed once the receiving actor has been initialized.
+ * the receiving actor to be hooked up with {@link hookup}. Any messages sent
+ * before the actor is hooked up will be queued up and delivered once
+ * the actor has been initialized.
  *
  *    lookup("ui").send({ count: 5 });
  *
- * If you want to wait until the message has been stored, then `await` the
+ * If you want to wait until the message has been queued up, then `await` the
  * `send` invocation:
  *
  *    await lookup("ui").send({ count: 5 });
  *
  * Note that this does not wait for the receiving actor to actually receive
  * and process the message. Instead, it will only ensure that the message
- * has been stored and is ready to be received by the receiving actor.
+ * has been queued up and is ready to be received by the receiving actor.
  *
  * You can use the resulting {@link ActorHandle} as a convenience in your actor.
  * For example, you can obtain a handle in the {@link Actor#init} callback
