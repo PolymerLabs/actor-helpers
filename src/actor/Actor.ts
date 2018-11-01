@@ -42,8 +42,8 @@ export type ValidActorMessageName = keyof ActorMessageType;
  * optional {@link Actor#init} callback.
  *
  *    class MyActor extends Actor<MessageType> {
- *      stockData: StockData;
- *      count: number;
+ *      stockData?: StockData;
+ *      count?: number;
  *
  *      async init() {
  *        this.count = 0;
@@ -51,7 +51,7 @@ export type ValidActorMessageName = keyof ActorMessageType;
  *      }
  *
  *      onMessage(message: MessageType) {
- *        this.count++;
+ *        this.count!++;
  *        console.log(`Actor ${this.actorName} received message number ${this.count}: ${message}`);
  *      }
  *    }
@@ -232,22 +232,23 @@ export interface ActorHandle<ActorName extends ValidActorMessageName> {
  * has been queued up and is ready to be received by the receiving actor.
  *
  * You can use the resulting {@link ActorHandle} as a convenience in your actor.
- * For example, you can obtain a handle in the {@link Actor#init} callback
+ * For example, you can obtain a handle in the constructor
  * and send messages in your {@link Actor#onMessage} callback:
  *
  *    class MyActor extends Actor<MessageType> {
- *      count?: number;
- *      uiActor?: ActorHandle<"ui">;
+ *      count: number;
+ *      uiActor: ActorHandle<"ui">;
  *
- *      async init() {
+ *      constructor() {
+ *        super();
  *        this.count = 0;
  *        this.uiActor = lookup("ui");
  *      }
  *
  *      onMessage(message: MessageType) {
- *        this.count!++;
+ *        this.count++;
  *        console.log(`I received message number ${this.count}: ${message}`);
- *        this.uiActor!.send({ count: this.count });
+ *        this.uiActor.send({ count: this.count });
  *      }
  *    }
  *
