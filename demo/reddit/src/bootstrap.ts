@@ -17,7 +17,7 @@ import { hookup } from "westend-helpers/lib/actor/Actor.js";
 import { UIActor } from "./actors/ui.js";
 import { AppState } from "./model/state.js";
 
-import { notify } from "./utils/router.js";
+import { RouterActor } from "./actors/router.js";
 
 declare var Worker: {
   new (url: URL | string, options?: { type: string }): Worker;
@@ -26,6 +26,7 @@ declare var Worker: {
 declare global {
   interface ActorMessageType {
     ui: AppState;
+    router: never;
   }
 }
 
@@ -33,7 +34,7 @@ new Worker("state-worker.js", { type: "module" });
 
 async function bootstrap() {
   hookup("ui", new UIActor());
-  notify();
+  hookup("router", new RouterActor());
 }
 
 bootstrap();
