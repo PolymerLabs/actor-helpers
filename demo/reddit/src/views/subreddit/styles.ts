@@ -36,11 +36,12 @@ export const styles = html`
 }
 
 .subreddit .item .top {
+  --item-padding: calc(var(--base) * var(--padding));
   background-color: var(--primary-b);
   height: 100%;
-  width: 100%;
+  width: calc(100% - var(--item-padding));
 
-  padding: calc(var(--base) * var(--padding));
+  padding: var(--item-padding);
   padding-right: 0;
 
   display: grid;

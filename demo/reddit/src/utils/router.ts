@@ -12,9 +12,10 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { lookup } from "westend-helpers/lib/Actor.js";
+import { lookup } from "westend-helpers/lib/actor/Actor.js";
 
 import { ActionType } from "../actors/state.js";
+import {ViewType} from "../model/view.js";
 
 export enum NavigationType {
   NAVIGATION,
@@ -28,30 +29,39 @@ export interface NavigationMessage {
 const stateActor = lookup("state");
 
 export async function notify() {
-  let path = getPath();
+  const path = getPath();
 
   if (path === "/") {
-    path = "/r/all";
+    go("/r/all", { notify: true, replace: true });
+    return;
   }
 
-  stateActor.send({
-    path,
-    type: ActionType.NAVIGATION
-  });
+  if (path.startsWith("/r/")) {
+    stateActor.send({
+      path,
+      pathType: ViewType.SUBREDDIT,
+      type: ActionType.NAVIGATION
+    });
+  } else if (path.startsWith("/t/")) {
+    stateActor.send({
+      path,
+      pathType: ViewType.THREAD,
+      type: ActionType.NAVIGATION
+    });
+  }
+
 }
 
-// tslint:disable-next-line:class-name these could get confusing otherwise
-export interface go_opts {
+export interface NavigationOptions {
   notify?: boolean;
   replace?: boolean;
 }
-// tslint:disable-next-line:variable-name these could get confusing otherwise
-const go_defaultOpts: go_opts = {
+const defaultNavigationOptions = {
   notify: true,
   replace: false
 };
-export function go(path: string, opts: go_opts = {}) {
-  opts = { ...go_defaultOpts, ...opts };
+export function go(path: string, opts: NavigationOptions = {}) {
+  opts = { ...defaultNavigationOptions, ...opts };
   if (opts.replace) {
     history.replaceState(null, "", `#${path}`);
   } else {

@@ -1,5 +1,5 @@
 import { render, html, TemplateResult } from "lit-html";
-import { Actor } from "westend-helpers/lib/Actor.js";
+import { Actor } from "westend-helpers/lib/actor/Actor.js";
 
 import { View, ViewType } from "../model/view.js";
 import { AppState } from "../model/state.js";
@@ -125,7 +125,6 @@ export class UIActor extends Actor<AppState> {
     render(
       html`
       <main>
-        <div id="root">Welcome to LurkIt</div>
         <item-stack
           .isNewFunc=${isNewFunc}
           @dismissgesture=${() => history.back()}

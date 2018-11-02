@@ -29,13 +29,12 @@ export const renderer = (view: View) => {
     throw new Error("View is not of type SUBREDDIT");
   }
 
-  const { cachedAt } = view.subreddit;
-
   return html`
 ${styles}
 <div class="view subreddit">
   ${view.subreddit.items.map(item => {
     const {
+      cachedAt,
       previewImage,
       title,
       author,

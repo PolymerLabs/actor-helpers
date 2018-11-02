@@ -12,7 +12,7 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { hookup } from "westend-helpers/lib/Actor.js";
+import { hookup } from "westend-helpers/lib/actor/Actor.js";
 import { Action, StateActor } from "./actors/state.js";
 
 declare global {

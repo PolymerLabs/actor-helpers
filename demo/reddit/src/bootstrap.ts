@@ -12,7 +12,7 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { hookup } from "westend-helpers/lib/Actor.js";
+import { hookup } from "westend-helpers/lib/actor/Actor.js";
 
 import { UIActor } from "./actors/ui.js";
 import { AppState } from "./model/state.js";

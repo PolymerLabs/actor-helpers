@@ -12,6 +12,10 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
+import { html } from "lit-html";
+
+export const styles = html`
+<style>
 .view.thread {
   display: flex;
   flex-direction: column;
@@ -47,9 +51,9 @@
 .thread .post .content.link {
   display: block;
   padding: 0;
-  background-size: cover;
-  background-position: 50% 50%;
+  background-size: contain;
   min-height: 25vh;
+  background-repeat: no-repeat;
 }
 
 .thread .post .title {
@@ -90,3 +94,4 @@
 .thread .content p {
   margin: calc(var(--base) * var(--padding)) 0;
 }
+`;
