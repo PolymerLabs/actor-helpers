@@ -12,7 +12,6 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-
 declare global {
   interface IDBCursor {
     value: any;
