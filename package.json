@@ -8,7 +8,7 @@
     "format-check": "test $(prettier --l \"{demo/**/*.{js,ts,jsx,tsx},src/**/*.{js,ts},*.{js,json,md}}\" | wc -l) -eq 0",
     "clean": "touch lib && rm -rf lib && mkdir lib",
     "test": "npm run clean && npm run build && karma start",
-    "prepack": "npm run build"
+    "prepack": "export NODE_ENV=$NODE_ENV && tsc"
   },
   "husky": {
     "hooks": {
