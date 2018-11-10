@@ -16,4 +16,8 @@ This store is an implementation detail of the messaging system used by `hookup()
 [actor model]: https://en.wikipedia.org/wiki/Actor_model
 [boilerplate]: https://github.com/polymerlabs/actor-boilerplate
 
+---
+
+License BSD-3-clause
+
 Please note: this is not a Google product.
