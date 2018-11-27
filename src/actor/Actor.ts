@@ -86,7 +86,7 @@ interface Constructable<T = {}> {
  * application, you can use `actorName`. This field is accessible only after
  * the {@link hookup} has been called.
  *
- * Users of this actor generally should not use {@link Actor#initPromise}. This
+ * Users of this mixin generally should not use {@link Actor#initPromise}. This
  * is an internal implementation detail for {@link hookup}.
  */
 export function actorMixin<T, S extends Constructable = Constructable<Object>>(
@@ -156,6 +156,46 @@ export function actorMixin<T, S extends Constructable = Constructable<Object>>(
   }
 
   return actor;
+}
+
+/**
+ * A base-class to define an Actor type. It requires all sub-classes to
+ * implement the {@link Actor#onMessage} callback.
+ *
+ *    class MyActor extends Actor<MessageType> {
+ *      onMessage(message: MessageType) {
+ *        console.log(`Actor ${this.actorName} I received message: ${message}`);
+ *      }
+ *    }
+ *
+ * If you would like to perform some initialization logic, implement the
+ * optional {@link Actor#init} callback.
+ *
+ *    class MyActor extends Actor<MessageType> {
+ *      stockData?: StockData;
+ *      count?: number;
+ *
+ *      async init() {
+ *        this.count = 0;
+ *        this.stockData = await (await fetch("/stockdata.json")).json()
+ *      }
+ *
+ *      onMessage(message: MessageType) {
+ *        this.count!++;
+ *        console.log(`Actor ${this.actorName} received message number ${this.count}: ${message}`);
+ *      }
+ *    }
+ *
+ * If you want to know the actorName that this actor is assigned to in your
+ * application, you can use `actorName`. This field is accessible only after
+ * the {@link hookup} has been called.
+ *
+ * Users of this actor generally should not use {@link Actor#initPromise}. This
+ * is an internal implementation detail for {@link hookup}.
+ */
+export abstract class Actor<J> extends actorMixin(Object) {
+  async init(): Promise<void> {}
+  abstract onMessage(message: J): void;
 }
 
 const messageStore = new WatchableMessageStore("ACTOR-MESSAGES");
