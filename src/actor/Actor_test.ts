@@ -12,12 +12,15 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { Actor, hookup, lookup, initializeQueues } from "./Actor.js";
+import { actorMixin, hookup, lookup, initializeQueues } from "./Actor.js";
 
 declare var window: { Mocha: Mocha.MochaGlobals; assert: Chai.Assert };
 
 const { suite, test, teardown, setup } = window.Mocha;
 const { assert } = window;
+
+const FooActor = actorMixin<"foo">(Object);
+const DummyActor = actorMixin<"foo">(Object);
 
 declare global {
   interface ActorMessageType {
@@ -42,7 +45,7 @@ suite("Actor", () => {
 
   test("can hookup an actor", async () => {
     await new Promise(async resolve => {
-      class IgnoringActor extends Actor<"foo"> {
+      class IgnoringActor extends FooActor {
         onMessage() {
           resolve();
         }
@@ -55,7 +58,7 @@ suite("Actor", () => {
 
   test("can lookup an actor and send a message", async () => {
     await new Promise(async resolve => {
-      class IgnoringActor extends Actor<"dummy"> {
+      class IgnoringActor extends DummyActor {
         onMessage() {
           resolve();
         }
@@ -69,7 +72,7 @@ suite("Actor", () => {
 
   test("can call lookup before hookup", async () => {
     await new Promise(async resolve => {
-      class IgnoringActor extends Actor<"dummy"> {
+      class IgnoringActor extends DummyActor {
         onMessage() {
           resolve();
         }
@@ -85,7 +88,7 @@ suite("Actor", () => {
 
   test("can retrieve own actor name", async () => {
     await new Promise(async resolve => {
-      class IgnoringActor extends Actor<"dummy"> {
+      class IgnoringActor extends DummyActor {
         onMessage() {
           assert.equal(this.actorName, "ignoring");
           resolve();
@@ -100,7 +103,7 @@ suite("Actor", () => {
 
   test("constructor finishes before init() is run", async () => {
     await new Promise(async resolve => {
-      class IgnoringActor extends Actor<"dummy"> {
+      class IgnoringActor extends DummyActor {
         private propsProcessed = true;
         private constructorDone: boolean;
 
@@ -125,7 +128,7 @@ suite("Actor", () => {
     test("deletes old messages", async () => {
       await new Promise(async (resolve, reject) => {
         await lookup("ignoring").send("dummy");
-        class IgnoringActor extends Actor<"dummy"> {
+        class IgnoringActor extends DummyActor {
           onMessage() {
             reject(Error("Message got delivered anyway"));
           }
