@@ -92,7 +92,7 @@ interface Constructable<T = {}> {
 export function actorMixin<T, S extends Constructable = Constructable<Object>>(
   superClass: S
 ) {
-  class actor extends superClass {
+  return class extends superClass {
     /**
      * Do not use, it is an internal implementation detail used in {@link hookup}.
      */
@@ -153,9 +153,7 @@ export function actorMixin<T, S extends Constructable = Constructable<Object>>(
     onMessage(_: T) {
       throw new Error(`onMessage not implemented for ${this.actorName}`);
     }
-  }
-
-  return actor;
+  };
 }
 
 /**
