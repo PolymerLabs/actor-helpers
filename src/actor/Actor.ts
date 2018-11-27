@@ -53,10 +53,11 @@ interface Constructable<T = {}> {
 }
 
 /**
- * A base-class to define an Actor type. It requires all sub-classes to
- * implement the {@link Actor#onMessage} callback.
+ * A mixin function to define an Actor type. It creates a class with a stub
+ * for the {@link Actor#onMessage} callback, which must be overwritten.
  *
- *    class MyActor extends Actor<MessageType> {
+ *    const Actor = actorMixin<MessageType>(SuperClassConstructor);
+ *    class MyActor extends Actor {
  *      onMessage(message: MessageType) {
  *        console.log(`Actor ${this.actorName} I received message: ${message}`);
  *      }
@@ -65,7 +66,8 @@ interface Constructable<T = {}> {
  * If you would like to perform some initialization logic, implement the
  * optional {@link Actor#init} callback.
  *
- *    class MyActor extends Actor<MessageType> {
+ *    const Actor = actorMixin<MessageType>(SuperClassConstructor);
+ *    class MyActor extends Actor {
  *      stockData?: StockData;
  *      count?: number;
  *
