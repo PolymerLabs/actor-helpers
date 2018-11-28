@@ -42,6 +42,120 @@ declare global {
  */
 export type ValidActorMessageName = keyof ActorMessageType;
 
+export interface actorMixin<T> {
+  actorName?: ValidActorMessageName;
+  onMessage(message: T): void;
+}
+
+interface Constructable<T = {}> {
+  new (...args: any[]): T;
+  prototype: T;
+}
+
+/**
+ * A mixin function to define an Actor type. It creates a class with a stub
+ * for the {@link Actor#onMessage} callback, which must be overwritten.
+ *
+ *    const Actor = actorMixin<MessageType>(SuperClassConstructor);
+ *    class MyActor extends Actor {
+ *      onMessage(message: MessageType) {
+ *        console.log(`Actor ${this.actorName} I received message: ${message}`);
+ *      }
+ *    }
+ *
+ * If you would like to perform some initialization logic, implement the
+ * optional {@link Actor#init} callback.
+ *
+ *    const Actor = actorMixin<MessageType>(SuperClassConstructor);
+ *    class MyActor extends Actor {
+ *      stockData?: StockData;
+ *      count?: number;
+ *
+ *      async init() {
+ *        this.count = 0;
+ *        this.stockData = await (await fetch("/stockdata.json")).json()
+ *      }
+ *
+ *      onMessage(message: MessageType) {
+ *        this.count!++;
+ *        console.log(`Actor ${this.actorName} received message number ${this.count}: ${message}`);
+ *      }
+ *    }
+ *
+ * If you want to know the actorName that this actor is assigned to in your
+ * application, you can use `actorName`. This field is accessible only after
+ * the {@link hookup} has been called.
+ *
+ * Users of this mixin generally should not use {@link Actor#initPromise}. This
+ * is an internal implementation detail for {@link hookup}.
+ */
+export function actorMixin<T, S extends Constructable = Constructable<Object>>(
+  superClass: S
+) {
+  return class extends superClass {
+    /**
+     * Do not use, it is an internal implementation detail used in {@link hookup}.
+     */
+    readonly initPromise = Promise.resolve().then(() => this.init());
+
+    /**
+     * The name given to this actor by calling {@link hookup}.
+     */
+    actorName?: ValidActorMessageName;
+
+    /**
+     * Init callback that can be used to perform some initialization logic.
+     * This method is invoked in the constructor of an {@link Actor} and should
+     * not be called by any user of the actor subclass.
+     *
+     * Note that no messages will be delivered until the resulting promise
+     * is resolved.
+     *
+     * @return A promise which resolves once this actor is initialized.
+     */
+    async init(): Promise<void> {}
+
+    /**
+     * Callback to process a message that was sent to this actor.
+     *
+     * Note that this callback is synchronous. This means that if an actor needs
+     * to perform expensive work (for example, encode an image), you need to
+     * perform this work asynchronously. You can make `onMessage` asynchronous
+     * if you want to use `await`. Note that message delivery will *not* be
+     * halted until `onMessage` as completed.
+     *
+     *    class MyActor extends Actor<MessageType> {
+     *      onMessage(message: MessageType) {
+     *        Promise.resolve().then(() => this.performExpensiveWork());
+     *      }
+     *
+     *      async performExpensiveWork() {
+     *        // Some long running task here
+     *      }
+     *    }
+     *
+     *
+     * For TypeScript users, this requires the specification
+     * of the {@link ActorMessageType}:
+     *
+     *    interface State {
+     *      count: number;
+     *    }
+     *
+     *    declare global {
+     *      interface ActorMessageType {
+     *        ui: State;
+     *      }
+     *    }
+     *
+     * @param _ The message that was sent to this actor.
+     */
+    onMessage(_: T) {
+      throw new Error(`onMessage not implemented for ${this.actorName}`);
+    }
+  };
+}
+
 /**
  * A base-class to define an Actor type. It requires all sub-classes to
  * implement the {@link Actor#onMessage} callback.
@@ -77,70 +191,9 @@ export type ValidActorMessageName = keyof ActorMessageType;
  * Users of this actor generally should not use {@link Actor#initPromise}. This
  * is an internal implementation detail for {@link hookup}.
  */
-export abstract class Actor<T> {
-  /**
-   * Do not use, it is an internal implementation detail used in {@link hookup}.
-   */
-  private readonly initPromise: Promise<void>;
-
-  /**
-   * The name given to this actor by calling {@link hookup}.
-   */
-  actorName?: ValidActorMessageName;
-
-  constructor() {
-    // Run init in the next microtask
-    this.initPromise = Promise.resolve().then(() => this.init());
-  }
-
-  /**
-   * Init callback that can be used to perform some initialization logic.
-   * This method is invoked in the constructor of an {@link Actor} and should
-   * not be called by any user of the actor subclass.
-   *
-   * Note that no messages will be delivered until the resulting promise
-   * is resolved.
-   *
-   * @return A promise which resolves once this actor is initialized.
-   */
+export abstract class Actor<J> extends actorMixin(Object) {
   async init(): Promise<void> {}
-
-  /**
-   * Callback to process a message that was sent to this actor.
-   *
-   * Note that this callback is synchronous. This means that if an actor needs
-   * to perform expensive work (for example, encode an image), you need to
-   * perform this work asynchronously. You can make `onMessage` asynchronous
-   * if you want to use `await`. Note that message delivery will *not* be
-   * halted until `onMessage` as completed.
-   *
-   *    class MyActor extends Actor<MessageType> {
-   *      onMessage(message: MessageType) {
-   *        Promise.resolve().then(() => this.performExpensiveWork());
-   *      }
-   *
-   *      async performExpensiveWork() {
-   *        // Some long running task here
-   *      }
-   *    }
-   *
-   *
-   * For TypeScript users, this requires the specification
-   * of the {@link ActorMessageType}:
-   *
-   *    interface State {
-   *      count: number;
-   *    }
-   *
-   *    declare global {
-   *      interface ActorMessageType {
-   *        ui: State;
-   *      }
-   *    }
-   *
-   * @param message The message that was sent to this actor.
-   */
-  abstract onMessage(message: T): void;
+  abstract onMessage(message: J): void;
 }
 
 const messageStore = new WatchableMessageStore("ACTOR-MESSAGES");
@@ -179,7 +232,7 @@ export type HookdownCallback = () => Promise<void>;
  */
 export async function hookup<ActorName extends ValidActorMessageName>(
   actorName: ActorName,
-  actor: Actor<ActorMessageType[ActorName]>,
+  actor: actorMixin<ActorMessageType[ActorName]>,
   { purgeExistingMessages = false }: { purgeExistingMessages?: boolean } = {}
 ): Promise<HookdownCallback> {
   actor.actorName = actorName;
