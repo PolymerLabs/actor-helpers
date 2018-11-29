@@ -31,7 +31,8 @@ declare global {
    *    }
    *
    * If an actor can receive multiple types of messages,
-   * [a discriminated union](https://www.typescriptlang.org/docs/handbook/advanced-types.html#discriminated-unions)
+   * [a discriminated
+   * union](https://www.typescriptlang.org/docs/handbook/advanced-types.html#discriminated-unions)
    * has proven useful.
    */
   interface ActorMessageType {}
@@ -78,7 +79,8 @@ interface Constructable<T = {}> {
  *
  *      onMessage(message: MessageType) {
  *        this.count!++;
- *        console.log(`Actor ${this.actorName} received message number ${this.count}: ${message}`);
+ *        console.log(`Actor ${this.actorName} received message number
+ * ${this.count}: ${message}`);
  *      }
  *    }
  *
@@ -94,7 +96,8 @@ export function actorMixin<T, S extends Constructable = Constructable<Object>>(
 ) {
   return class extends superClass {
     /**
-     * Do not use, it is an internal implementation detail used in {@link hookup}.
+     * Do not use, it is an internal implementation detail used in {@link
+     * hookup}.
      */
     readonly initPromise = Promise.resolve().then(() => this.init());
 
@@ -180,7 +183,8 @@ export function actorMixin<T, S extends Constructable = Constructable<Object>>(
  *
  *      onMessage(message: MessageType) {
  *        this.count!++;
- *        console.log(`Actor ${this.actorName} received message number ${this.count}: ${message}`);
+ *        console.log(`Actor ${this.actorName} received message number
+ * ${this.count}: ${message}`);
  *      }
  *    }
  *
@@ -238,6 +242,8 @@ export async function hookup<ActorName extends ValidActorMessageName>(
   actor.actorName = actorName;
   // @ts-ignore
   await actor.initPromise;
+
+  messageStore.resetCursor();
 
   if (purgeExistingMessages) {
     await messageStore.popMessages(actorName);
@@ -327,10 +333,7 @@ export function lookup<ActorName extends ValidActorMessageName>(
 ): ActorHandle<ActorName> {
   return {
     async send(message: ActorMessageType[ActorName]) {
-      await messageStore.pushMessage({
-        recipient: actorName,
-        detail: message
-      });
+      await messageStore.pushMessage({ recipient: actorName, detail: message });
     }
   };
 }

@@ -60,6 +60,7 @@ export class WatchableMessageStore {
   private bcc?: BroadcastChannel;
   private dbName: string;
   private objStoreName = OBJECT_STORE_NAME;
+  private lastCursorId = 0;
 
   constructor(private name: string) {
     this.dbName = `${DB_PREFIX}.${name}`;
@@ -68,6 +69,10 @@ export class WatchableMessageStore {
     if ("BroadcastChannel" in self) {
       this.bcc = new BroadcastChannel(name);
     }
+  }
+
+  resetCursor() {
+    this.lastCursorId = 0;
   }
 
   private init() {
@@ -103,7 +108,11 @@ export class WatchableMessageStore {
    */
   async popMessages(
     recipient: string,
-    { keepMessage = false }: { keepMessage?: boolean } = {}
+    {
+      keepMessage = false
+    }: {
+      keepMessage?: boolean;
+    } = {}
   ) {
     const transaction = (await this.database).transaction(
       this.objStoreName,
@@ -112,7 +121,7 @@ export class WatchableMessageStore {
 
     const cursorRequest = transaction
       .objectStore(this.objStoreName)
-      .openCursor();
+      .openCursor(IDBKeyRange.lowerBound(this.lastCursorId, true));
 
     return new Promise<StoredMessage[]>((resolve, reject) => {
       const messages: StoredMessage[] = [];
@@ -136,6 +145,8 @@ export class WatchableMessageStore {
           }
 
           cursor.continue();
+
+          this.lastCursorId = cursor.key as number;
         } else {
           resolve(messages);
         }

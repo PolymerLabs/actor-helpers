@@ -46,7 +46,9 @@ export declare class WatchableMessageStore {
     private bcc?;
     private dbName;
     private objStoreName;
+    private lastCursorId;
     constructor(name: string);
+    resetCursor(): void;
     private init;
     /**
      * Retrieve all messages for a specific recipient. You can specify with
