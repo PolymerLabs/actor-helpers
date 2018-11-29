@@ -44,6 +44,14 @@ export interface StoredMessage {
   detail: {};
 }
 
+export type StoredMessageCallback = (entries: StoredMessage[]) => void;
+
+interface WaitingRecipient {
+  keepMessage: boolean;
+  callback: (message: StoredMessage) => void;
+  finishedCallback: () => void;
+}
+
 /**
  * A messageStore that can read and write to a specific objectStore in an
  * IndexedDB database. This class is used to implement message passing for
@@ -61,6 +69,7 @@ export class WatchableMessageStore {
   private dbName: string;
   private objStoreName = OBJECT_STORE_NAME;
   private lastCursorId = 0;
+  private waitingRecipients = new Map<string, WaitingRecipient[]>();
 
   constructor(private name: string) {
     this.dbName = `${DB_PREFIX}.${name}`;
@@ -109,22 +118,48 @@ export class WatchableMessageStore {
   async popMessages(
     recipient: string,
     {
-      keepMessage = false
-    }: {
-      keepMessage?: boolean;
-    } = {}
+      keepMessage = false,
+      deleteImmediately = false
+    }: { keepMessage?: boolean; deleteImmediately?: boolean } = {}
   ) {
-    const transaction = (await this.database).transaction(
-      this.objStoreName,
-      "readwrite"
-    );
-
-    const cursorRequest = transaction
-      .objectStore(this.objStoreName)
-      .openCursor(IDBKeyRange.lowerBound(this.lastCursorId, true));
-
-    return new Promise<StoredMessage[]>((resolve, reject) => {
+    return new Promise<StoredMessage[]>(async resolve => {
       const messages: StoredMessage[] = [];
+
+      const existingCallbacks: WaitingRecipient[] =
+        this.waitingRecipients.get(recipient) || [];
+
+      existingCallbacks.push({
+        keepMessage,
+        callback: message => {
+          messages.push(message);
+        },
+        finishedCallback: () => {
+          resolve(messages);
+        }
+      });
+
+      this.waitingRecipients.set(recipient, existingCallbacks);
+
+      if (deleteImmediately) {
+        await this.notifyAllRecipients(deleteImmediately);
+      } else if (this.waitingRecipients.size === 1) {
+        setTimeout(() => {
+          this.notifyAllRecipients();
+        }, 2);
+      }
+    });
+  }
+
+  private async notifyAllRecipients(deleteImmediately = false) {
+    return new Promise(async (resolve, reject) => {
+      const transaction = (await this.database).transaction(
+        this.objStoreName,
+        "readwrite"
+      );
+
+      const cursorRequest = transaction
+        .objectStore(this.objStoreName)
+        .openCursor(IDBKeyRange.lowerBound(this.lastCursorId, true));
 
       cursorRequest.onerror = () => {
         reject(cursorRequest.error);
@@ -136,11 +171,32 @@ export class WatchableMessageStore {
         if (cursor) {
           const value = cursor.value as StoredMessage;
 
-          if (value.recipient === recipient || recipient === "*") {
-            messages.push(value);
+          if (deleteImmediately) {
+            cursor.delete();
+            cursor.continue();
 
-            if (!keepMessage) {
-              cursor.delete();
+            return;
+          }
+
+          const universalRecipientCallbacks = this.waitingRecipients.get("*");
+
+          if (universalRecipientCallbacks) {
+            for (const waitingRecipient of universalRecipientCallbacks) {
+              waitingRecipient.callback(value);
+            }
+          }
+
+          const waitingRecipientCallbacks = this.waitingRecipients.get(
+            value.recipient
+          );
+
+          if (waitingRecipientCallbacks) {
+            for (const waitingRecipient of waitingRecipientCallbacks) {
+              waitingRecipient.callback(value);
+
+              if (!waitingRecipient.keepMessage) {
+                cursor.delete();
+              }
             }
           }
 
@@ -148,7 +204,15 @@ export class WatchableMessageStore {
 
           this.lastCursorId = cursor.key as number;
         } else {
-          resolve(messages);
+          for (const waitingRecipientCallbacks of this.waitingRecipients.values()) {
+            for (const waitingRecipient of waitingRecipientCallbacks) {
+              waitingRecipient.finishedCallback();
+            }
+          }
+
+          this.waitingRecipients.clear();
+
+          resolve();
         }
       };
     });
@@ -188,7 +252,7 @@ export class WatchableMessageStore {
 
   private subscribeWithBroadcastChannel(
     recipient: string,
-    callback: (entries: StoredMessage[]) => void
+    callback: StoredMessageCallback
   ) {
     const channel = new BroadcastChannel(this.name);
 
@@ -218,7 +282,7 @@ export class WatchableMessageStore {
 
   private subscribeWithPolling(
     recipient: string,
-    callback: (messages: StoredMessage[]) => void
+    callback: StoredMessageCallback
   ) {
     let timeout = -1;
 

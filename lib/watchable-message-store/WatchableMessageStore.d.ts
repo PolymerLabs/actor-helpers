@@ -29,6 +29,7 @@ export interface StoredMessage {
      */
     detail: {};
 }
+export declare type StoredMessageCallback = (entries: StoredMessage[]) => void;
 /**
  * A messageStore that can read and write to a specific objectStore in an
  * IndexedDB database. This class is used to implement message passing for
@@ -47,6 +48,7 @@ export declare class WatchableMessageStore {
     private dbName;
     private objStoreName;
     private lastCursorId;
+    private waitingRecipients;
     constructor(name: string);
     resetCursor(): void;
     private init;
@@ -59,9 +61,11 @@ export declare class WatchableMessageStore {
      * @param keepMessage Whether to keep any messages after the recipient has
      *    processed the message.
      */
-    popMessages(recipient: string, { keepMessage }?: {
+    popMessages(recipient: string, { keepMessage, deleteImmediately }?: {
         keepMessage?: boolean;
+        deleteImmediately?: boolean;
     }): Promise<StoredMessage[]>;
+    private notifyAllRecipients;
     /**
      * Store a message with a recipient.
      *

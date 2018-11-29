@@ -53,7 +53,6 @@ suite("Actor", () => {
           resolve();
         }
       }
-
       hookdown = await hookup("ignoring1", new IgnoringActor());
       await lookup("ignoring1").send("foo");
     });
@@ -159,13 +158,15 @@ suite("Actor", () => {
   describe("initializeQueues", () => {
     test("deletes old messages", async () => {
       await new Promise(async (resolve, reject) => {
-        await lookup("ignoring").send("dummy");
         class IgnoringActor extends Actor<"dummy"> {
           onMessage() {
             reject(Error("Message got delivered anyway"));
           }
         }
+
+        await lookup("ignoring").send("dummy");
         await initializeQueues();
+
         hookdown = await hookup("ignoring", new IgnoringActor());
         setTimeout(resolve, 100);
       });

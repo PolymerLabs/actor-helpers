@@ -362,5 +362,5 @@ export function lookup<ActorName extends ValidActorMessageName>(
  *    hookup("database", new DatabaseActor());
  */
 export async function initializeQueues() {
-  await messageStore.popMessages("*");
+  await messageStore.popMessages("*", { deleteImmediately: true });
 }
