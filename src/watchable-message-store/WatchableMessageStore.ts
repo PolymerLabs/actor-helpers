@@ -60,7 +60,7 @@ export class WatchableMessageStore {
   private bcc?: BroadcastChannel;
   private dbName: string;
   private objStoreName = OBJECT_STORE_NAME;
-  lastCursorId = 0;
+  private lastCursorId = 0;
 
   constructor(private name: string) {
     this.dbName = `${DB_PREFIX}.${name}`;
@@ -69,6 +69,10 @@ export class WatchableMessageStore {
     if ("BroadcastChannel" in self) {
       this.bcc = new BroadcastChannel(name);
     }
+  }
+
+  resetCursor() {
+    this.lastCursorId = 0;
   }
 
   private init() {

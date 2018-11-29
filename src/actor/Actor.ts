@@ -243,7 +243,7 @@ export async function hookup<ActorName extends ValidActorMessageName>(
   // @ts-ignore
   await actor.initPromise;
 
-  messageStore.lastCursorId = 0;
+  messageStore.resetCursor();
 
   if (purgeExistingMessages) {
     await messageStore.popMessages(actorName);
