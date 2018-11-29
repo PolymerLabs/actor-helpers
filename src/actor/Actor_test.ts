@@ -12,7 +12,13 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { Actor, hookup, lookup, initializeQueues } from "./Actor.js";
+import {
+  Actor,
+  HookdownCallback,
+  hookup,
+  initializeQueues,
+  lookup
+} from "./Actor.js";
 
 declare var window: { Mocha: Mocha.MochaGlobals; assert: Chai.Assert };
 
@@ -30,7 +36,7 @@ declare global {
 suite("Actor", () => {
   let hookdown: () => void;
 
-  setup(async function() {
+  setup(async () => {
     await initializeQueues();
   });
 
@@ -83,6 +89,35 @@ suite("Actor", () => {
     });
   });
 
+  test("re-traverses messages after hookup", async () => {
+    await new Promise(async resolve => {
+      let ignoringHookdown: HookdownCallback;
+
+      class LateActor extends Actor<"dummy"> {
+        onMessage() {
+          resolve();
+        }
+      }
+
+      class IgnoringActor extends Actor<"dummy"> {
+        onMessage() {
+          setTimeout(async () => {
+            const lateHookdown = await hookup("late", new LateActor());
+
+            hookdown = async () => {
+              await ignoringHookdown();
+              await lateHookdown();
+            };
+          }, 100);
+        }
+      }
+
+      await lookup("late").send("dummy");
+      await lookup("ignoring").send("dummy");
+      ignoringHookdown = await hookup("ignoring", new IgnoringActor());
+    });
+  });
+
   test("can retrieve own actor name", async () => {
     await new Promise(async resolve => {
       class IgnoringActor extends Actor<"dummy"> {
@@ -121,7 +156,7 @@ suite("Actor", () => {
     });
   });
 
-  describe("initializeQueues", function() {
+  describe("initializeQueues", () => {
     test("deletes old messages", async () => {
       await new Promise(async (resolve, reject) => {
         await lookup("ignoring").send("dummy");

@@ -46,7 +46,7 @@ export declare class WatchableMessageStore {
     private bcc?;
     private dbName;
     private objStoreName;
-    private _lastCursorId;
+    lastCursorId: number;
     constructor(name: string);
     private init;
     /**
