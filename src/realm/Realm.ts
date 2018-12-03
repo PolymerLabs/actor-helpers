@@ -1,7 +1,18 @@
-import { actorMixin, ValidActorMessageName } from "./Actor.js";
+import { actorMixin, ValidActorMessageName } from "../actor/Actor.js";
+import { Bridge } from "../bridge/Bridge.js";
 
 export class ActorRealm {
   private readonly actors = new Map<ValidActorMessageName, actorMixin<any>>();
+
+  private readonly bridges: Bridge[] = [];
+
+  installBridge(bridge: Bridge) {
+    this.bridges.push(bridge);
+  }
+
+  hasActor<ActorName extends ValidActorMessageName>(actorName: ActorName) {
+    return this.actors.has(actorName);
+  }
 
   async addActor<ActorName extends ValidActorMessageName>(
     actorName: ActorName,
@@ -22,12 +33,18 @@ export class ActorRealm {
 
   async sendMessage<ActorName extends ValidActorMessageName>(
     actorName: ActorName,
-    message: ActorMessageType[ActorName]
+    message: ActorMessageType[ActorName],
+    options: { shouldBroadcast?: boolean } = {}
   ) {
+    const { shouldBroadcast = true } = options;
     const actor = this.actors.get(actorName);
 
     if (actor) {
       actor.onMessage(message);
+    } else if (shouldBroadcast) {
+      await Promise.all(
+        this.bridges.map(bridge => bridge.maybeSendToActor(message))
+      );
     }
   }
 

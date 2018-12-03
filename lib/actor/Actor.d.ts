@@ -11,6 +11,7 @@
  * subject to an additional IP rights grant found at
  * http://polymer.github.io/PATENTS.txt
  */
+import { ActorRealm } from "../realm/Realm.js";
 declare global {
     /**
      * The type of messages that can be sent to an actor. To define the type
@@ -245,6 +246,7 @@ export declare abstract class Actor<J> extends Actor_base {
     init(): Promise<void>;
     abstract onMessage(message: J): void;
 }
+export declare const DEFAULT_ACTOR_REALM: ActorRealm;
 /**
  * The callback-type which is returned by {@link hookup} that can be used
  * to remove an {@link Actor} from the system.

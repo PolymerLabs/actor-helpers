@@ -12,7 +12,7 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { ActorRealm } from "./ActorRealm.js";
+import { ActorRealm } from "../realm/Realm.js";
 
 declare global {
   /**
@@ -200,7 +200,7 @@ export abstract class Actor<J> extends actorMixin(Object) {
   abstract onMessage(message: J): void;
 }
 
-const DEFAULT_ACTOR_REALM = new ActorRealm();
+export const DEFAULT_ACTOR_REALM = new ActorRealm();
 
 /**
  * The callback-type which is returned by {@link hookup} that can be used
