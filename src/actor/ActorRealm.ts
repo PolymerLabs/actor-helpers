@@ -1,20 +1,26 @@
 import { actorMixin, ValidActorMessageName } from "./Actor.js";
 
-export class ActorIDBRealm {
+export class ActorRealm {
   private readonly actors = new Map<ValidActorMessageName, actorMixin<any>>();
 
-  addActor<ActorName extends ValidActorMessageName>(
+  async addActor<ActorName extends ValidActorMessageName>(
     actorName: ActorName,
     actor: actorMixin<ActorMessageType[ActorName]>
   ) {
+    if (this.actors.has(actorName)) {
+      throw new Error(`Already registered actor with name ${actorName}`);
+    }
+
     this.actors.set(actorName, actor);
   }
 
-  removeActor<ActorName extends ValidActorMessageName>(actorName: ActorName) {
+  async removeActor<ActorName extends ValidActorMessageName>(
+    actorName: ActorName
+  ) {
     this.actors.delete(actorName);
   }
 
-  sendMessage<ActorName extends ValidActorMessageName>(
+  async sendMessage<ActorName extends ValidActorMessageName>(
     actorName: ActorName,
     message: ActorMessageType[ActorName]
   ) {
@@ -23,5 +29,9 @@ export class ActorIDBRealm {
     if (actor) {
       actor.onMessage(message);
     }
+  }
+
+  queryAllActorNames(): ValidActorMessageName[] {
+    return [...this.actors.keys()];
   }
 }
