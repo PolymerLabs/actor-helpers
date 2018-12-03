@@ -1,3 +1,8 @@
+import { ValidActorMessageName } from "../actor/Actor.js";
+
 export interface Bridge {
-  maybeSendToActor(message: any): Promise<void>;
+  maybeSendToActor(
+    actorName: ValidActorMessageName,
+    message: any
+  ): Promise<void>;
 }

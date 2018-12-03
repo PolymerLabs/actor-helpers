@@ -1,3 +1,4 @@
+import { ValidActorMessageName } from "../actor/Actor.js";
 import { ActorRealm } from "../realm/Realm.js";
 import { Bridge } from "./Bridge.js";
 export declare class IDBBridge implements Bridge {
@@ -8,7 +9,7 @@ export declare class IDBBridge implements Bridge {
     private database;
     private lastCursorId;
     constructor(realm: ActorRealm);
-    maybeSendToActor(): Promise<void>;
+    maybeSendToActor(actorName: ValidActorMessageName, message: any): Promise<void>;
     private initDatabase;
     private onmessage;
     private retrieveMessagesForRealm;

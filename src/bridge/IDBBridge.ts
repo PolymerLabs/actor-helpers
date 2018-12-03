@@ -5,7 +5,7 @@ import { Bridge } from "./Bridge.js";
 
 interface IDBMessage {
   actorName: ValidActorMessageName;
-  detail: any;
+  message: any;
 }
 
 const DB_PREFIX = "ACTOR-DATABASE";
@@ -19,14 +19,28 @@ export class IDBBridge implements Bridge {
   private lastCursorId = 0;
 
   constructor(private realm: ActorRealm) {
-    this.bcc.addEventListener("message", this.onmessage);
+    this.bcc.addEventListener("message", this.onmessage.bind(this));
     this.database = this.initDatabase();
 
     realm.installBridge(this);
   }
 
-  async maybeSendToActor() {
-    this.bcc.postMessage({});
+  async maybeSendToActor(actorName: ValidActorMessageName, message: any) {
+    const database = await this.database;
+    const transaction = database.transaction(OBJECT_STORE_NAME, "readwrite");
+
+    return new Promise<void>((resolve, reject) => {
+      transaction.onerror = () => {
+        reject(transaction.error);
+      };
+
+      transaction.oncomplete = () => {
+        this.bcc.postMessage({});
+        resolve();
+      };
+
+      transaction.objectStore(OBJECT_STORE_NAME).add({ actorName, message });
+    });
   }
 
   private initDatabase() {
@@ -62,10 +76,8 @@ export class IDBBridge implements Bridge {
     setTimeout(async () => {
       const messages = await this.retrieveMessagesForRealm();
 
-      for (const message of messages) {
-        this.realm.sendMessage(message.actorName, message.detail, {
-          shouldBroadcast: false
-        });
+      for (const { actorName, message } of messages) {
+        this.realm.sendMessage(actorName, message, { shouldBroadcast: false });
       }
 
       this.requesting = false;
