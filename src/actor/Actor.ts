@@ -12,7 +12,7 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { WatchableMessageStore } from "../watchable-message-store/WatchableMessageStore.js";
+import { ActorIDBRealm } from "./ActorRealm.js";
 
 declare global {
   /**
@@ -200,7 +200,7 @@ export abstract class Actor<J> extends actorMixin(Object) {
   abstract onMessage(message: J): void;
 }
 
-const messageStore = new WatchableMessageStore("ACTOR-MESSAGES");
+const ACTOR_REALM = new ActorIDBRealm();
 
 /**
  * The callback-type which is returned by {@link hookup} that can be used
@@ -236,32 +236,16 @@ export type HookdownCallback = () => Promise<void>;
  */
 export async function hookup<ActorName extends ValidActorMessageName>(
   actorName: ActorName,
-  actor: actorMixin<ActorMessageType[ActorName]>,
-  { purgeExistingMessages = false }: { purgeExistingMessages?: boolean } = {}
+  actor: actorMixin<ActorMessageType[ActorName]>
 ): Promise<HookdownCallback> {
   actor.actorName = actorName;
   // @ts-ignore
   await actor.initPromise;
 
-  messageStore.resetCursor();
-
-  if (purgeExistingMessages) {
-    await messageStore.popMessages(actorName);
-  }
-
-  const hookdown = messageStore.subscribe(actorName, messages => {
-    for (const message of messages) {
-      try {
-        actor.onMessage(message.detail as ActorMessageType[ActorName]);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  });
+  ACTOR_REALM.addActor(actorName, actor);
 
   return async () => {
-    hookdown();
-    await messageStore.popMessages(actorName);
+    ACTOR_REALM.removeActor(actorName);
   };
 }
 
@@ -333,7 +317,7 @@ export function lookup<ActorName extends ValidActorMessageName>(
 ): ActorHandle<ActorName> {
   return {
     async send(message: ActorMessageType[ActorName]) {
-      await messageStore.pushMessage({ recipient: actorName, detail: message });
+      ACTOR_REALM.sendMessage(actorName, message);
     }
   };
 }
@@ -361,6 +345,4 @@ export function lookup<ActorName extends ValidActorMessageName>(
  *    hookup("state", new StateActor());
  *    hookup("database", new DatabaseActor());
  */
-export async function initializeQueues() {
-  await messageStore.popMessages("*");
-}
+export async function initializeQueues() {}

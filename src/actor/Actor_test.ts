@@ -73,7 +73,7 @@ suite("Actor", () => {
     });
   });
 
-  test("can call lookup before hookup", async () => {
+  test.skip("can call lookup before hookup", async () => {
     await new Promise(async resolve => {
       class IgnoringActor extends Actor<"dummy"> {
         onMessage() {
@@ -89,7 +89,7 @@ suite("Actor", () => {
     });
   });
 
-  test("re-traverses messages after hookup", async () => {
+  test.skip("re-traverses messages after hookup", async () => {
     await new Promise(async resolve => {
       let ignoringHookdown: HookdownCallback;
 
