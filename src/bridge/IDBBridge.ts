@@ -79,13 +79,7 @@ export class IDBBridge implements Bridge {
     this.requesting = true;
 
     setTimeout(async () => {
-      const messages = await this.retrieveMessagesForRealm();
-
-      for (const {actorName, message} of messages) {
-        for (const realm of this.realms) {
-          realm.send(actorName, message, {bubble: false});
-        }
-      }
+      await this.processMessagesForRealm();
 
       this.requesting = false;
 
@@ -96,7 +90,7 @@ export class IDBBridge implements Bridge {
     }, 2);
   }
 
-  private retrieveMessagesForRealm(): Promise<IDBMessage[]> {
+  private processMessagesForRealm(): Promise<void> {
     return new Promise(async (resolve, reject) => {
       const database = await this.database;
       const transaction = database.transaction(OBJECT_STORE_NAME, 'readwrite');
@@ -104,8 +98,6 @@ export class IDBBridge implements Bridge {
       const cursorRequest =
           transaction.objectStore(OBJECT_STORE_NAME)
               .openCursor(IDBKeyRange.lowerBound(this.lastCursorId, true));
-
-      const messages: IDBMessage[] = [];
 
       cursorRequest.onerror = () => {
         reject(cursorRequest.error);
@@ -118,7 +110,7 @@ export class IDBBridge implements Bridge {
           const value = cursor.value as IDBMessage;
 
           for (const realm of this.realms) {
-            if (realm.send(value.actorName, value.message)) {
+            if (realm.send(value.actorName, value.message, {bubble: false})) {
               cursor.delete();
             }
           }
@@ -127,7 +119,7 @@ export class IDBBridge implements Bridge {
 
           this.lastCursorId = cursor.key as number;
         } else {
-          resolve(messages);
+          resolve();
         }
       };
     });

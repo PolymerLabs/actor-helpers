@@ -12,5 +12,5 @@ export declare class IDBBridge implements Bridge {
     sendToActor(event: CustomEvent): Promise<void>;
     private initDatabase;
     private onmessage;
-    private retrieveMessagesForRealm;
+    private processMessagesForRealm;
 }
