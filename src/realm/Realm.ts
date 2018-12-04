@@ -9,6 +9,11 @@ export type HookdownCallback = () => void;
 export class Realm extends EventTarget {
   private readonly actors = new Map<ValidActorMessageName, actorMixin<any>>();
 
+  constructor() {
+    super();
+    this.onActorMessage = this.onActorMessage.bind(this);
+  }
+
   async hookup(actorName: ValidActorMessageName, actor: actorMixin<any>):
       Promise<HookdownCallback> {
     actor.actorName = actorName;

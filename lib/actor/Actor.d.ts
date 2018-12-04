@@ -150,7 +150,7 @@ export declare function actorMixin<T, S extends Constructable = Constructable<Ob
         deliver(message: T): void;
         addListener(callback: EventListener): void;
         removeListener(callback: EventListener): boolean;
-        dispatchEvent(event: Event): void;
+        emit(event: Event): void;
     };
 } & S;
 declare const Actor_base: {
@@ -215,7 +215,7 @@ declare const Actor_base: {
         deliver(message: {}): void;
         addListener(callback: EventListener): void;
         removeListener(callback: EventListener): boolean;
-        dispatchEvent(event: Event): void;
+        emit(event: Event): void;
     };
 } & ObjectConstructor;
 /**

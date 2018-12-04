@@ -6,6 +6,7 @@ import { actorMixin, ValidActorMessageName } from '../actor/Actor.js';
 export declare type HookdownCallback = () => void;
 export declare class Realm extends EventTarget {
     private readonly actors;
+    constructor();
     hookup(actorName: ValidActorMessageName, actor: actorMixin<any>): Promise<HookdownCallback>;
     lookup(actorName: ValidActorMessageName): Promise<void>;
     send<ActorName extends ValidActorMessageName>(actorName: ActorName, message: ActorMessageType[ActorName], options?: {

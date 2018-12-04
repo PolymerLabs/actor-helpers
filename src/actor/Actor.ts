@@ -179,7 +179,7 @@ export function actorMixin<T, S extends Constructable = Constructable<Object>>(
       return false;
     }
 
-    dispatchEvent(event: Event) {
+    emit(event: Event) {
       for (const callback of this.callbacks) {
         callback(event);
       }
