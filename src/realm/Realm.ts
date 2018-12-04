@@ -1,54 +1,66 @@
-import { actorMixin, ValidActorMessageName } from "../actor/Actor.js";
-import { Bridge } from "../bridge/Bridge.js";
+import {actorMixin, ActorSendEvent, ValidActorMessageName} from '../actor/Actor.js';
 
-export class ActorRealm {
+/**
+ * The callback-type which is returned by {@link hookup} that can be used
+ * to remove an {@link Actor} from the system.
+ */
+export type HookdownCallback = () => void;
+
+export class Realm extends EventTarget {
   private readonly actors = new Map<ValidActorMessageName, actorMixin<any>>();
 
-  private readonly bridges: Bridge[] = [];
-
-  installBridge(bridge: Bridge) {
-    this.bridges.push(bridge);
-  }
-
-  hasActor<ActorName extends ValidActorMessageName>(actorName: ActorName) {
-    return this.actors.has(actorName);
-  }
-
-  async addActor<ActorName extends ValidActorMessageName>(
-    actorName: ActorName,
-    actor: actorMixin<ActorMessageType[ActorName]>
-  ) {
-    if (this.actors.has(actorName)) {
-      throw new Error(`Already registered actor with name ${actorName}`);
-    }
+  async hookup(actorName: ValidActorMessageName, actor: actorMixin<any>):
+      Promise<HookdownCallback> {
+    actor.actorName = actorName;
+    // @ts-ignore
+    await actor.initPromise;
 
     this.actors.set(actorName, actor);
+
+    actor.addListener(this.onActorMessage);
+
+    return () => {
+      actor.removeListener(this.onActorMessage);
+    };
   }
 
-  async removeActor<ActorName extends ValidActorMessageName>(
-    actorName: ActorName
-  ) {
-    this.actors.delete(actorName);
+  async lookup(actorName: ValidActorMessageName): Promise<void> {
+    if (this.actors.has(actorName)) {
+      return;
+    }
+
+    await new Promise((resolve) => {
+      this.dispatchEvent(
+          new CustomEvent('actor-lookup', {detail: {callback: resolve}}));
+    });
   }
 
-  async sendMessage<ActorName extends ValidActorMessageName>(
-    actorName: ActorName,
-    message: ActorMessageType[ActorName],
-    options: { shouldBroadcast?: boolean } = {}
-  ) {
-    const { shouldBroadcast = true } = options;
+  send<ActorName extends ValidActorMessageName>(
+      actorName: ActorName, message: ActorMessageType[ActorName],
+      options: {bubble?: boolean} = {}): boolean {
+    const {bubble = true} = options;
     const actor = this.actors.get(actorName);
 
     if (actor) {
-      actor.onMessage(message);
-    } else if (shouldBroadcast) {
-      await Promise.all(
-        this.bridges.map(bridge => bridge.maybeSendToActor(actorName, message))
-      );
+      actor.deliver(message);
+      return true;
     }
+
+    if (bubble) {
+      this.dispatchEvent(
+          new CustomEvent('actor-send', {detail: {actorName, message}}));
+    }
+
+    return false;
   }
 
-  queryAllActorNames(): ValidActorMessageName[] {
-    return [...this.actors.keys()];
+  private onActorMessage(event: Event) {
+    if (isActorEvent(event)) {
+      this.send(event.actorName, event.message);
+    }
   }
+}
+
+function isActorEvent(event: Event): event is ActorSendEvent<any> {
+  return (event.type === 'actor-send');
 }

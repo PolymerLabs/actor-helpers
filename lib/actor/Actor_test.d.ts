@@ -13,9 +13,9 @@
  */
 declare global {
     interface ActorMessageType {
-        ignoring: "dummy";
-        ignoring1: "foo";
-        late: "dummy";
+        ignoring: 'dummy';
+        ignoring1: 'foo';
+        late: 'dummy';
     }
 }
 export {};

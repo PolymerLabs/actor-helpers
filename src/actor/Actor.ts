@@ -12,7 +12,7 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import { ActorRealm } from "../realm/Realm.js";
+import {Realm} from '../realm/Realm.js';
 
 declare global {
   /**
@@ -45,11 +45,13 @@ export type ValidActorMessageName = keyof ActorMessageType;
 
 export interface actorMixin<T> {
   actorName?: ValidActorMessageName;
-  onMessage(message: T): void;
+  deliver(message: T): void;
+  addListener(callback: EventListener): void;
+  removeListener(callback: EventListener): boolean;
 }
 
 interface Constructable<T = {}> {
-  new (...args: any[]): T;
+  new(...args: any[]): T;
   prototype: T;
 }
 
@@ -92,9 +94,10 @@ interface Constructable<T = {}> {
  * is an internal implementation detail for {@link hookup}.
  */
 export function actorMixin<T, S extends Constructable = Constructable<Object>>(
-  superClass: S
-) {
+    superClass: S) {
   return class extends superClass {
+    callbacks: EventListener[] = [];
+
     /**
      * Do not use, it is an internal implementation detail used in {@link
      * hookup}.
@@ -156,6 +159,31 @@ export function actorMixin<T, S extends Constructable = Constructable<Object>>(
     onMessage(_: T) {
       throw new Error(`onMessage not implemented for ${this.actorName}`);
     }
+
+    deliver(message: T) {
+      this.onMessage(message);
+    }
+
+    addListener(callback: EventListener) {
+      this.callbacks.push(callback);
+    }
+
+    removeListener(callback: EventListener) {
+      const index = this.callbacks.indexOf(callback);
+
+      if (index !== -1) {
+        this.callbacks.splice(index, 1);
+        return true;
+      }
+
+      return false;
+    }
+
+    dispatchEvent(event: Event) {
+      for (const callback of this.callbacks) {
+        callback(event);
+      }
+    }
   };
 }
 
@@ -200,13 +228,14 @@ export abstract class Actor<J> extends actorMixin(Object) {
   abstract onMessage(message: J): void;
 }
 
-export const DEFAULT_ACTOR_REALM = new ActorRealm();
+export const ACTOR_REALM = new Realm();
 
-/**
- * The callback-type which is returned by {@link hookup} that can be used
- * to remove an {@link Actor} from the system.
- */
-export type HookdownCallback = () => Promise<void>;
+export interface ActorSendEvent<ActorName extends ValidActorMessageName> extends
+    Event {
+  type: 'actor-send';
+  actorName: ActorName;
+  message: ActorMessageType[ActorName];
+}
 
 /**
  * Hookup an {@link Actor} with a name into system. In this case, the actor
@@ -235,18 +264,8 @@ export type HookdownCallback = () => Promise<void>;
  *    invoked to remove this actor from the system.
  */
 export async function hookup<ActorName extends ValidActorMessageName>(
-  actorName: ActorName,
-  actor: actorMixin<ActorMessageType[ActorName]>
-): Promise<HookdownCallback> {
-  actor.actorName = actorName;
-  // @ts-ignore
-  await actor.initPromise;
-
-  DEFAULT_ACTOR_REALM.addActor(actorName, actor);
-
-  return async () => {
-    DEFAULT_ACTOR_REALM.removeActor(actorName);
-  };
+    actorName: ActorName, actor: actorMixin<ActorMessageType[ActorName]>) {
+  return ACTOR_REALM.hookup(actorName, actor);
 }
 
 /**
@@ -268,7 +287,7 @@ export interface ActorHandle<ActorName extends ValidActorMessageName> {
    *
    * @param message The message to send to this actor.
    */
-  send(message: ActorMessageType[ActorName]): Promise<void>;
+  send(message: ActorMessageType[ActorName]): void;
 }
 
 /**
@@ -313,11 +332,10 @@ export interface ActorHandle<ActorName extends ValidActorMessageName> {
  * @return A convenience handle to send messages directly to a specific actor.
  */
 export function lookup<ActorName extends ValidActorMessageName>(
-  actorName: ActorName
-): ActorHandle<ActorName> {
+    actorName: ActorName): ActorHandle<ActorName> {
   return {
-    async send(message: ActorMessageType[ActorName]) {
-      DEFAULT_ACTOR_REALM.sendMessage(actorName, message);
+    send(message: ActorMessageType[ActorName]) {
+      ACTOR_REALM.send(actorName, message);
     }
   };
 }

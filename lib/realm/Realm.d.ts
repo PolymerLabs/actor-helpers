@@ -1,14 +1,15 @@
-import { actorMixin, ValidActorMessageName } from "../actor/Actor.js";
-import { Bridge } from "../bridge/Bridge.js";
-export declare class ActorRealm {
+import { actorMixin, ValidActorMessageName } from '../actor/Actor.js';
+/**
+ * The callback-type which is returned by {@link hookup} that can be used
+ * to remove an {@link Actor} from the system.
+ */
+export declare type HookdownCallback = () => void;
+export declare class Realm extends EventTarget {
     private readonly actors;
-    private readonly bridges;
-    installBridge(bridge: Bridge): void;
-    hasActor<ActorName extends ValidActorMessageName>(actorName: ActorName): boolean;
-    addActor<ActorName extends ValidActorMessageName>(actorName: ActorName, actor: actorMixin<ActorMessageType[ActorName]>): Promise<void>;
-    removeActor<ActorName extends ValidActorMessageName>(actorName: ActorName): Promise<void>;
-    sendMessage<ActorName extends ValidActorMessageName>(actorName: ActorName, message: ActorMessageType[ActorName], options?: {
-        shouldBroadcast?: boolean;
-    }): Promise<void>;
-    queryAllActorNames(): ValidActorMessageName[];
+    hookup(actorName: ValidActorMessageName, actor: actorMixin<any>): Promise<HookdownCallback>;
+    lookup(actorName: ValidActorMessageName): Promise<void>;
+    send<ActorName extends ValidActorMessageName>(actorName: ActorName, message: ActorMessageType[ActorName], options?: {
+        bubble?: boolean;
+    }): boolean;
+    private onActorMessage;
 }

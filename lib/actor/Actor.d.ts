@@ -11,7 +11,7 @@
  * subject to an additional IP rights grant found at
  * http://polymer.github.io/PATENTS.txt
  */
-import { ActorRealm } from "../realm/Realm.js";
+import { Realm } from '../realm/Realm.js';
 declare global {
     /**
      * The type of messages that can be sent to an actor. To define the type
@@ -42,7 +42,9 @@ declare global {
 export declare type ValidActorMessageName = keyof ActorMessageType;
 export interface actorMixin<T> {
     actorName?: ValidActorMessageName;
-    onMessage(message: T): void;
+    deliver(message: T): void;
+    addListener(callback: EventListener): void;
+    removeListener(callback: EventListener): boolean;
 }
 interface Constructable<T = {}> {
     new (...args: any[]): T;
@@ -88,6 +90,7 @@ interface Constructable<T = {}> {
  */
 export declare function actorMixin<T, S extends Constructable = Constructable<Object>>(superClass: S): {
     new (...args: any[]): {
+        callbacks: EventListener[];
         /**
          * Do not use, it is an internal implementation detail used in {@link
          * hookup}.
@@ -144,10 +147,15 @@ export declare function actorMixin<T, S extends Constructable = Constructable<Ob
          * @param _ The message that was sent to this actor.
          */
         onMessage(_: T): void;
+        deliver(message: T): void;
+        addListener(callback: EventListener): void;
+        removeListener(callback: EventListener): boolean;
+        dispatchEvent(event: Event): void;
     };
 } & S;
 declare const Actor_base: {
     new (...args: any[]): {
+        callbacks: EventListener[];
         /**
          * Do not use, it is an internal implementation detail used in {@link
          * hookup}.
@@ -204,6 +212,10 @@ declare const Actor_base: {
          * @param _ The message that was sent to this actor.
          */
         onMessage(_: {}): void;
+        deliver(message: {}): void;
+        addListener(callback: EventListener): void;
+        removeListener(callback: EventListener): boolean;
+        dispatchEvent(event: Event): void;
     };
 } & ObjectConstructor;
 /**
@@ -246,12 +258,12 @@ export declare abstract class Actor<J> extends Actor_base {
     init(): Promise<void>;
     abstract onMessage(message: J): void;
 }
-export declare const DEFAULT_ACTOR_REALM: ActorRealm;
-/**
- * The callback-type which is returned by {@link hookup} that can be used
- * to remove an {@link Actor} from the system.
- */
-export declare type HookdownCallback = () => Promise<void>;
+export declare const ACTOR_REALM: Realm;
+export interface ActorSendEvent<ActorName extends ValidActorMessageName> extends Event {
+    type: 'actor-send';
+    actorName: ActorName;
+    message: ActorMessageType[ActorName];
+}
 /**
  * Hookup an {@link Actor} with a name into system. In this case, the actor
  * will initialize and respond to any messages designated for `actorName`.
@@ -278,7 +290,7 @@ export declare type HookdownCallback = () => Promise<void>;
  * @return A promise which, once resolved, provides a callback that can be
  *    invoked to remove this actor from the system.
  */
-export declare function hookup<ActorName extends ValidActorMessageName>(actorName: ActorName, actor: actorMixin<ActorMessageType[ActorName]>): Promise<HookdownCallback>;
+export declare function hookup<ActorName extends ValidActorMessageName>(actorName: ActorName, actor: actorMixin<ActorMessageType[ActorName]>): Promise<import("src/realm/Realm.js").HookdownCallback>;
 /**
  * An object that describes a convenience method to send a message to a specific
  * actor. Use {@link lookup} to obtain a handle to a specific actor.
@@ -298,7 +310,7 @@ export interface ActorHandle<ActorName extends ValidActorMessageName> {
      *
      * @param message The message to send to this actor.
      */
-    send(message: ActorMessageType[ActorName]): Promise<void>;
+    send(message: ActorMessageType[ActorName]): void;
 }
 /**
  * Lookup an actor in the system with the provided `actorName`. This requires
