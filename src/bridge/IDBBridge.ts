@@ -20,16 +20,18 @@ export class IDBBridge implements Bridge {
   private readonly realms: Realm[] = [];
 
   constructor() {
-    this.bcc.addEventListener('message', this.onmessage.bind(this));
+    this.onmessage = this.onmessage.bind(this);
+    this.sendToActor = this.sendToActor.bind(this);
     this.database = this.initDatabase();
+    this.bcc.addEventListener('message', this.onmessage);
   }
 
   install(realm: Realm) {
     this.realms.push(realm);
-    realm.addEventListener('actor-send', this.sendToActor);
+    realm.addEventListener('actor-send', this.sendToActor as any);
   }
 
-  async sendToActor(event: Event) {
+  async sendToActor(event: CustomEvent) {
     const database = await this.database;
     const transaction = database.transaction(OBJECT_STORE_NAME, 'readwrite');
 
@@ -43,7 +45,7 @@ export class IDBBridge implements Bridge {
         resolve();
       };
 
-      transaction.objectStore(OBJECT_STORE_NAME).add(event);
+      transaction.objectStore(OBJECT_STORE_NAME).add(event.detail);
     });
   }
 

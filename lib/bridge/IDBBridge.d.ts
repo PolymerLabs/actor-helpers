@@ -9,7 +9,7 @@ export declare class IDBBridge implements Bridge {
     private readonly realms;
     constructor();
     install(realm: Realm): void;
-    sendToActor(event: Event): Promise<void>;
+    sendToActor(event: CustomEvent): Promise<void>;
     private initDatabase;
     private onmessage;
     private retrieveMessagesForRealm;
