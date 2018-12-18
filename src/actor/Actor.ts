@@ -200,7 +200,7 @@ export abstract class Actor<J> extends actorMixin(Object) {
   abstract onMessage(message: J): void;
 }
 
-const ACTOR_REALM = new ActorRealm();
+const DEFAULT_ACTOR_REALM = new ActorRealm();
 
 /**
  * The callback-type which is returned by {@link hookup} that can be used
@@ -242,10 +242,10 @@ export async function hookup<ActorName extends ValidActorMessageName>(
   // @ts-ignore
   await actor.initPromise;
 
-  ACTOR_REALM.addActor(actorName, actor);
+  DEFAULT_ACTOR_REALM.addActor(actorName, actor);
 
   return async () => {
-    ACTOR_REALM.removeActor(actorName);
+    DEFAULT_ACTOR_REALM.removeActor(actorName);
   };
 }
 
@@ -317,7 +317,7 @@ export function lookup<ActorName extends ValidActorMessageName>(
 ): ActorHandle<ActorName> {
   return {
     async send(message: ActorMessageType[ActorName]) {
-      ACTOR_REALM.sendMessage(actorName, message);
+      DEFAULT_ACTOR_REALM.sendMessage(actorName, message);
     }
   };
 }
