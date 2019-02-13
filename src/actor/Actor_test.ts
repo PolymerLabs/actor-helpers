@@ -12,22 +12,22 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import {Actor, hookup, initializeQueues, lookup} from './Actor.js';
+import { Actor, hookup, initializeQueues, lookup } from "./Actor.js";
 
-declare var window: {Mocha: Mocha.MochaGlobals; assert: Chai.Assert};
+declare var window: { Mocha: Mocha.MochaGlobals; assert: Chai.Assert };
 
-const {suite, test, teardown, setup} = window.Mocha;
-const {assert} = window;
+const { suite, test, teardown, setup } = window.Mocha;
+const { assert } = window;
 
 declare global {
   interface ActorMessageType {
-    ignoring: 'dummy';
-    ignoring1: 'foo';
-    late: 'dummy';
+    ignoring: "dummy";
+    ignoring1: "foo";
+    late: "dummy";
   }
 }
 
-suite('Actor', () => {
+suite("Actor", () => {
   let hookdown: () => void;
 
   setup(async () => {
@@ -40,63 +40,63 @@ suite('Actor', () => {
     }
   });
 
-  test('can hookup an actor', async () => {
+  test("can hookup an actor", async () => {
     await new Promise(async resolve => {
-      class IgnoringActor extends Actor<'foo'> {
+      class IgnoringActor extends Actor<"foo"> {
         onMessage() {
           resolve();
         }
       }
 
-      hookdown = await hookup('ignoring1', new IgnoringActor());
-      await lookup('ignoring1').send('foo');
+      hookdown = await hookup("ignoring1", new IgnoringActor());
+      await lookup("ignoring1").send("foo");
     });
   });
 
-  test('can lookup an actor and send a message', async () => {
+  test("can lookup an actor and send a message", async () => {
     await new Promise(async resolve => {
-      class IgnoringActor extends Actor<'dummy'> {
+      class IgnoringActor extends Actor<"dummy"> {
         onMessage() {
           resolve();
         }
       }
 
-      hookdown = await hookup('ignoring', new IgnoringActor());
+      hookdown = await hookup("ignoring", new IgnoringActor());
 
-      await lookup('ignoring').send('dummy');
+      await lookup("ignoring").send("dummy");
     });
   });
 
-  test.skip('can call lookup before hookup', async () => {
+  test.skip("can call lookup before hookup", async () => {
     await new Promise(async resolve => {
-      class IgnoringActor extends Actor<'dummy'> {
+      class IgnoringActor extends Actor<"dummy"> {
         onMessage() {
           resolve();
         }
       }
 
-      await lookup('ignoring').send('dummy');
+      await lookup("ignoring").send("dummy");
 
       setTimeout(async () => {
-        hookdown = await hookup('ignoring', new IgnoringActor());
+        hookdown = await hookup("ignoring", new IgnoringActor());
       }, 100);
     });
   });
 
-  test.skip('re-traverses messages after hookup', async () => {
+  test.skip("re-traverses messages after hookup", async () => {
     await new Promise(async resolve => {
       let ignoringHookdown: () => void;
 
-      class LateActor extends Actor<'dummy'> {
+      class LateActor extends Actor<"dummy"> {
         onMessage() {
           resolve();
         }
       }
 
-      class IgnoringActor extends Actor<'dummy'> {
+      class IgnoringActor extends Actor<"dummy"> {
         onMessage() {
           setTimeout(async () => {
-            const lateHookdown = await hookup('late', new LateActor());
+            const lateHookdown = await hookup("late", new LateActor());
 
             hookdown = async () => {
               await ignoringHookdown();
@@ -106,30 +106,30 @@ suite('Actor', () => {
         }
       }
 
-      await lookup('late').send('dummy');
-      await lookup('ignoring').send('dummy');
-      ignoringHookdown = await hookup('ignoring', new IgnoringActor());
+      await lookup("late").send("dummy");
+      await lookup("ignoring").send("dummy");
+      ignoringHookdown = await hookup("ignoring", new IgnoringActor());
     });
   });
 
-  test('can retrieve own actor name', async () => {
+  test("can retrieve own actor name", async () => {
     await new Promise(async resolve => {
-      class IgnoringActor extends Actor<'dummy'> {
+      class IgnoringActor extends Actor<"dummy"> {
         onMessage() {
-          assert.equal(this.actorName, 'ignoring');
+          assert.equal(this.actorName, "ignoring");
           resolve();
         }
       }
 
-      hookdown = await hookup('ignoring', new IgnoringActor());
+      hookdown = await hookup("ignoring", new IgnoringActor());
 
-      await lookup('ignoring').send('dummy');
+      await lookup("ignoring").send("dummy");
     });
   });
 
-  test('constructor finishes before init() is run', async () => {
+  test("constructor finishes before init() is run", async () => {
     await new Promise(async resolve => {
-      class IgnoringActor extends Actor<'dummy'> {
+      class IgnoringActor extends Actor<"dummy"> {
         private propsProcessed = true;
         private constructorDone: boolean;
 
@@ -146,21 +146,21 @@ suite('Actor', () => {
 
         onMessage() {}
       }
-      hookdown = await hookup('ignoring', new IgnoringActor());
+      hookdown = await hookup("ignoring", new IgnoringActor());
     });
   });
 
-  describe('initializeQueues', () => {
-    test('deletes old messages', async () => {
+  describe("initializeQueues", () => {
+    test("deletes old messages", async () => {
       await new Promise(async (resolve, reject) => {
-        await lookup('ignoring').send('dummy');
-        class IgnoringActor extends Actor<'dummy'> {
+        await lookup("ignoring").send("dummy");
+        class IgnoringActor extends Actor<"dummy"> {
           onMessage() {
-            reject(Error('Message got delivered anyway'));
+            reject(Error("Message got delivered anyway"));
           }
         }
         await initializeQueues();
-        hookdown = await hookup('ignoring', new IgnoringActor());
+        hookdown = await hookup("ignoring", new IgnoringActor());
         setTimeout(resolve, 100);
       });
     });

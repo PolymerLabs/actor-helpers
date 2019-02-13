@@ -12,7 +12,7 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import {Realm} from '../realm/Realm.js';
+import { Realm } from "../realm/Realm.js";
 
 declare global {
   /**
@@ -51,7 +51,7 @@ export interface actorMixin<T> {
 }
 
 interface Constructable<T = {}> {
-  new(...args: any[]): T;
+  new (...args: any[]): T;
   prototype: T;
 }
 
@@ -94,7 +94,8 @@ interface Constructable<T = {}> {
  * is an internal implementation detail for {@link hookup}.
  */
 export function actorMixin<T, S extends Constructable = Constructable<Object>>(
-    superClass: S) {
+  superClass: S
+) {
   return class extends superClass {
     callbacks: EventListener[] = [];
 
@@ -230,9 +231,9 @@ export abstract class Actor<J> extends actorMixin(Object) {
 
 export const ACTOR_REALM = new Realm();
 
-export interface ActorSendEvent<ActorName extends ValidActorMessageName> extends
-    Event {
-  type: 'actor-send';
+export interface ActorSendEvent<ActorName extends ValidActorMessageName>
+  extends Event {
+  type: "actor-send";
   actorName: ActorName;
   message: ActorMessageType[ActorName];
 }
@@ -264,7 +265,9 @@ export interface ActorSendEvent<ActorName extends ValidActorMessageName> extends
  *    invoked to remove this actor from the system.
  */
 export async function hookup<ActorName extends ValidActorMessageName>(
-    actorName: ActorName, actor: actorMixin<ActorMessageType[ActorName]>) {
+  actorName: ActorName,
+  actor: actorMixin<ActorMessageType[ActorName]>
+) {
   return ACTOR_REALM.hookup(actorName, actor);
 }
 
@@ -332,7 +335,8 @@ export interface ActorHandle<ActorName extends ValidActorMessageName> {
  * @return A convenience handle to send messages directly to a specific actor.
  */
 export function lookup<ActorName extends ValidActorMessageName>(
-    actorName: ActorName): ActorHandle<ActorName> {
+  actorName: ActorName
+): ActorHandle<ActorName> {
   return {
     send(message: ActorMessageType[ActorName]) {
       ACTOR_REALM.send(actorName, message);
