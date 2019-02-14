@@ -1,5 +1,5 @@
-import { Realm } from '../realm/Realm.js';
-import { Bridge } from './Bridge.js';
+import { Realm } from "../realm/Realm.js";
+import { Bridge } from "./Bridge.js";
 export declare class IDBBridge implements Bridge {
     private readonly bcc;
     private requesting;

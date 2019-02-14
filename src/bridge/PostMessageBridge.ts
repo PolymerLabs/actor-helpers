@@ -1,5 +1,10 @@
 import { Bridge } from "./Bridge.js";
-import { Realm, ActorSendEventDetails } from "../realm/Realm.js";
+import {
+  Realm,
+  ActorSendEventDetails,
+  ActorLookupEventDetails,
+  Resolver
+} from "../realm/Realm.js";
 import { ValidActorMessageName } from "src/actor/Actor.js";
 
 export interface Endpoint extends EventTarget {
@@ -15,15 +20,17 @@ export enum BridgeMessageType {
 export interface BridgeSendMessage {
   type: BridgeMessageType.SEND;
   actorName: ValidActorMessageName;
-  msg: ActorMessageType[keyof ActorMessageType];
+  message: ActorMessageType[keyof ActorMessageType];
 }
 
 export interface BridgeLookupMessage {
   type: BridgeMessageType.LOOKUP;
+  actorName: ValidActorMessageName;
 }
 
 export interface BridgeAnnounceMessage {
   type: BridgeMessageType.ANNOUNCE;
+  actorName: ValidActorMessageName;
 }
 
 export type BridgeMessage =
@@ -33,6 +40,7 @@ export type BridgeMessage =
 
 export class PostMessageBridge implements Bridge {
   private installedRealms = new Set<Realm>();
+  private waitingResolves = new Map<ValidActorMessageName, Resolver[]>();
 
   constructor(private endpoint: Endpoint) {
     endpoint.addEventListener("message", this.onMessage.bind(this));
@@ -40,7 +48,35 @@ export class PostMessageBridge implements Bridge {
 
   install(realm: Realm) {
     realm.addEventListener("actor-send", this.onLocalActorSend.bind(this));
+    realm.addEventListener("actor-lookup", this.onLocalActorLookup.bind(this));
     this.installedRealms.add(realm);
+  }
+
+  private onLocalActorLookup(e: Event) {
+    // TODO: Fix typings here
+    const msg = (e as CustomEvent).detail as ActorLookupEventDetails;
+
+    if (this.actorIsLocal(msg.actorName)) {
+      msg.resolve();
+    }
+
+    this.addWaitingResolver(msg.actorName, msg.resolve);
+
+    // Broadcast
+    this.endpoint.postMessage({
+      type: BridgeMessageType.LOOKUP,
+      actorName: msg.actorName
+    } as BridgeLookupMessage);
+  }
+
+  private addWaitingResolver(
+    actorName: ValidActorMessageName,
+    resolver: Resolver
+  ) {
+    if (!this.waitingResolves.has(actorName)) {
+      this.waitingResolves.set(actorName, []);
+    }
+    this.waitingResolves.get(actorName)!.push(resolver);
   }
 
   private onLocalActorSend(e: Event) {
@@ -54,13 +90,11 @@ export class PostMessageBridge implements Bridge {
     });
 
     // Broadcast message through the postMessage channel
-    this.endpoint.postMessage(msg);
-  }
-
-  private onMessage(ev: Event) {
-    const msg = (ev as MessageEvent).data as BridgeMessage;
-    // @ts-ignore
-    this[msg.type](msg);
+    this.endpoint.postMessage({
+      type: BridgeMessageType.SEND,
+      actorName: msg.actorName,
+      message: msg.message
+    } as BridgeSendMessage);
   }
 
   private sendToAllLocalRealms<T extends ValidActorMessageName>(
@@ -77,11 +111,36 @@ export class PostMessageBridge implements Bridge {
     }
   }
 
-  private [BridgeMessageType.SEND](msg: BridgeSendMessage) {
-    this.sendToAllLocalRealms(msg.actorName, msg.msg);
+  private actorIsLocal(actorName: ValidActorMessageName): boolean {
+    return [...this.installedRealms].some(realm => realm.has(actorName));
   }
 
-  private [BridgeMessageType.LOOKUP](msg: BridgeLookupMessage) {}
+  private onMessage(ev: Event) {
+    const msg = (ev as MessageEvent).data as BridgeMessage;
+    // @ts-ignore
+    this[msg.type](msg);
+  }
 
-  private [BridgeMessageType.ANNOUNCE](msg: BridgeAnnounceMessage) {}
+  private [BridgeMessageType.SEND](msg: BridgeSendMessage) {
+    this.sendToAllLocalRealms(msg.actorName, msg.message);
+  }
+
+  private [BridgeMessageType.LOOKUP](msg: BridgeLookupMessage) {
+    if (!this.actorIsLocal(msg.actorName)) {
+      return;
+    }
+    this.endpoint.postMessage({
+      type: BridgeMessageType.ANNOUNCE,
+      actorName: msg.actorName
+    } as BridgeAnnounceMessage);
+  }
+
+  private [BridgeMessageType.ANNOUNCE](msg: BridgeAnnounceMessage) {
+    if (!this.waitingResolves.has(msg.actorName)) {
+      return;
+    }
+    const waitingResolves = this.waitingResolves.get(msg.actorName)!;
+    this.waitingResolves.delete(msg.actorName);
+    waitingResolves.forEach(f => f());
+  }
 }

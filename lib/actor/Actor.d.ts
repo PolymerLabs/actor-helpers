@@ -11,7 +11,7 @@
  * subject to an additional IP rights grant found at
  * http://polymer.github.io/PATENTS.txt
  */
-import { Realm } from '../realm/Realm.js';
+import { Realm } from "../realm/Realm.js";
 declare global {
     /**
      * The type of messages that can be sent to an actor. To define the type
@@ -260,7 +260,7 @@ export declare abstract class Actor<J> extends Actor_base {
 }
 export declare const ACTOR_REALM: Realm;
 export interface ActorSendEvent<ActorName extends ValidActorMessageName> extends Event {
-    type: 'actor-send';
+    type: "actor-send";
     actorName: ActorName;
     message: ActorMessageType[ActorName];
 }

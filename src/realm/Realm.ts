@@ -10,9 +10,17 @@ import {
  */
 export type HookdownCallback = () => void;
 
+export type Resolver = () => void;
+
 export interface ActorSendEventDetails {
   actorName: ValidActorMessageName;
   message: ActorMessageType[keyof ActorMessageType];
+  sourceRealm: Realm;
+}
+
+export interface ActorLookupEventDetails {
+  actorName: ValidActorMessageName;
+  resolve: Resolver;
   sourceRealm: Realm;
 }
 
@@ -48,9 +56,15 @@ export class Realm extends EventTarget {
 
     await new Promise(resolve => {
       this.dispatchEvent(
-        new CustomEvent("actor-lookup", { detail: { callback: resolve } })
+        new CustomEvent("actor-lookup", {
+          detail: { actorName, resolve, sourceRealm: this }
+        })
       );
     });
+  }
+
+  has<ActorName extends ValidActorMessageName>(actorName: ActorName): boolean {
+    return this.actors.has(actorName);
   }
 
   send<ActorName extends ValidActorMessageName>(
@@ -59,10 +73,9 @@ export class Realm extends EventTarget {
     options: { bubble?: boolean } = {}
   ): boolean {
     const { bubble = true } = options;
-    const actor = this.actors.get(actorName);
 
-    if (actor) {
-      actor.deliver(message);
+    if (this.has(actorName)) {
+      this.actors.get(actorName)!.deliver(message);
       return true;
     }
 
