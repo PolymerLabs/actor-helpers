@@ -63,4 +63,28 @@ suite("PostMessageBridge", () => {
       realm2.send("ignoring1", "foo");
     });
   });
+
+  test("allows lookup in the other realm", async function() {
+    const { realm1, realm2 } = this;
+
+    class ResolvingActor extends Actor<"foo"> {
+      onMessage() {}
+    }
+    await realm1.hookup("ignoring1", new ResolvingActor());
+
+    await realm2.lookup("ignoring1");
+  });
+
+  test("allows blocking lookups in the other realm", async function() {
+    await new Promise(async resolve => {
+      const { realm1, realm2 } = this;
+
+      realm2.lookup("ignoring1").then(() => resolve());
+
+      class ResolvingActor extends Actor<"foo"> {
+        onMessage() {}
+      }
+      await realm1.hookup("ignoring1", new ResolvingActor());
+    });
+  });
 });
