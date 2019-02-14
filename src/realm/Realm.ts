@@ -36,9 +36,10 @@ export class Realm extends EventTarget {
     actorName: ValidActorMessageName,
     actor: actorMixin<any>
   ): Promise<HookdownCallback> {
-    actor.actorName = actorName;
-    // @ts-ignore
-    await actor.initPromise;
+    (actor.actorName as actorMixin<any>["actorName"]) = actorName;
+    (actor.realm as actorMixin<any>["realm"]) = this;
+
+    await actor.init();
 
     this.actors.set(actorName, actor);
 

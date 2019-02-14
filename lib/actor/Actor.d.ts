@@ -41,7 +41,9 @@ declare global {
  */
 export declare type ValidActorMessageName = keyof ActorMessageType;
 export interface actorMixin<T> {
-    actorName?: ValidActorMessageName;
+    readonly actorName?: ValidActorMessageName;
+    readonly realm?: Realm;
+    init(): Promise<void>;
     deliver(message: T): void;
     addListener(callback: EventListener): void;
     removeListener(callback: EventListener): boolean;
@@ -92,14 +94,13 @@ export declare function actorMixin<T, S extends Constructable = Constructable<Ob
     new (...args: any[]): {
         callbacks: EventListener[];
         /**
-         * Do not use, it is an internal implementation detail used in {@link
-         * hookup}.
-         */
-        readonly initPromise: Promise<void>;
-        /**
          * The name given to this actor by calling {@link hookup}.
          */
-        actorName?: "ignoring" | "ignoring1" | "late" | undefined;
+        readonly actorName?: "ignoring" | "ignoring1" | "late" | undefined;
+        /**
+         * The realm this actor is attached to.
+         */
+        readonly realm?: Realm | undefined;
         /**
          * Init callback that can be used to perform some initialization logic.
          * This method is invoked in the constructor of an {@link Actor} and should
@@ -151,20 +152,20 @@ export declare function actorMixin<T, S extends Constructable = Constructable<Ob
         addListener(callback: EventListener): void;
         removeListener(callback: EventListener): boolean;
         emit(event: Event): void;
+        send<T_1 extends "ignoring" | "ignoring1" | "late">(actorName: T_1, message: ActorMessageType[T_1]): void;
     };
 } & S;
 declare const Actor_base: {
     new (...args: any[]): {
         callbacks: EventListener[];
         /**
-         * Do not use, it is an internal implementation detail used in {@link
-         * hookup}.
-         */
-        readonly initPromise: Promise<void>;
-        /**
          * The name given to this actor by calling {@link hookup}.
          */
-        actorName?: "ignoring" | "ignoring1" | "late" | undefined;
+        readonly actorName?: "ignoring" | "ignoring1" | "late" | undefined;
+        /**
+         * The realm this actor is attached to.
+         */
+        readonly realm?: Realm | undefined;
         /**
          * Init callback that can be used to perform some initialization logic.
          * This method is invoked in the constructor of an {@link Actor} and should
@@ -216,6 +217,7 @@ declare const Actor_base: {
         addListener(callback: EventListener): void;
         removeListener(callback: EventListener): boolean;
         emit(event: Event): void;
+        send<T extends "ignoring" | "ignoring1" | "late">(actorName: T, message: ActorMessageType[T]): void;
     };
 } & ObjectConstructor;
 /**

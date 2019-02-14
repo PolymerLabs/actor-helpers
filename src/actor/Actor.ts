@@ -44,7 +44,9 @@ declare global {
 export type ValidActorMessageName = keyof ActorMessageType;
 
 export interface actorMixin<T> {
-  actorName?: ValidActorMessageName;
+  readonly actorName?: ValidActorMessageName;
+  readonly realm?: Realm;
+  init(): Promise<void>;
   deliver(message: T): void;
   addListener(callback: EventListener): void;
   removeListener(callback: EventListener): boolean;
@@ -100,15 +102,14 @@ export function actorMixin<T, S extends Constructable = Constructable<Object>>(
     callbacks: EventListener[] = [];
 
     /**
-     * Do not use, it is an internal implementation detail used in {@link
-     * hookup}.
-     */
-    readonly initPromise = Promise.resolve().then(() => this.init());
-
-    /**
      * The name given to this actor by calling {@link hookup}.
      */
-    actorName?: ValidActorMessageName;
+    readonly actorName?: ValidActorMessageName;
+
+    /**
+     * The realm this actor is attached to.
+     */
+    readonly realm?: Realm;
 
     /**
      * Init callback that can be used to perform some initialization logic.
@@ -183,6 +184,15 @@ export function actorMixin<T, S extends Constructable = Constructable<Object>>(
     emit(event: Event) {
       for (const callback of this.callbacks) {
         callback(event);
+      }
+    }
+
+    send<T extends ValidActorMessageName>(
+      actorName: T,
+      message: ActorMessageType[T]
+    ) {
+      if (this.realm) {
+        this.realm.send(actorName, message);
       }
     }
   };

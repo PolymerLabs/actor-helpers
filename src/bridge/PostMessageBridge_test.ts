@@ -19,7 +19,7 @@ import { PostMessageBridge } from "../bridge/PostMessageBridge.js";
 declare var window: { Mocha: Mocha.MochaGlobals; assert: Chai.Assert };
 
 const { suite, test, teardown, setup } = window.Mocha;
-// const { assert } = window;
+const { assert } = window;
 
 declare global {
   interface ActorMessageType {
@@ -85,6 +85,29 @@ suite("PostMessageBridge", () => {
         onMessage() {}
       }
       await realm1.hookup("ignoring1", new ResolvingActor());
+    });
+  });
+
+  test("delivers messages to an actor in another realm", async function() {
+    await new Promise(async resolve => {
+      const { realm1, realm2 } = this;
+
+      class SendingActor extends Actor<"dummy"> {
+        async init() {
+          await this.realm!.lookup("ignoring1");
+          this.send("ignoring1", "foo");
+        }
+        onMessage() {}
+      }
+      realm2.hookup("ignoring", new SendingActor());
+
+      class ResolvingActor extends Actor<"foo"> {
+        onMessage(msg: "foo") {
+          assert(msg === "foo");
+          resolve();
+        }
+      }
+      realm1.hookup("ignoring1", new ResolvingActor());
     });
   });
 });
