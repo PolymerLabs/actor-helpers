@@ -10,6 +10,12 @@ import {
  */
 export type HookdownCallback = () => void;
 
+export interface ActorSendEventDetails {
+  actorName: ValidActorMessageName;
+  message: ActorMessageType[keyof ActorMessageType];
+  sourceRealm: Realm;
+}
+
 export class Realm extends EventTarget {
   private readonly actors = new Map<ValidActorMessageName, actorMixin<any>>();
 
@@ -62,7 +68,9 @@ export class Realm extends EventTarget {
 
     if (bubble) {
       this.dispatchEvent(
-        new CustomEvent("actor-send", { detail: { actorName, message } })
+        new CustomEvent("actor-send", {
+          detail: { actorName, message, sourceRealm: this }
+        })
       );
     }
 
