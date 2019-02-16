@@ -24,6 +24,11 @@ export interface ActorLookupEventDetails {
   sourceRealm: Realm;
 }
 
+export interface ActorHookupEventDetails {
+  actorName: ValidActorMessageName;
+  sourceRealm: Realm;
+}
+
 export class Realm extends EventTarget {
   private readonly actors = new Map<ValidActorMessageName, actorMixin<any>>();
 
@@ -44,6 +49,12 @@ export class Realm extends EventTarget {
     this.actors.set(actorName, actor);
 
     actor.addListener(this.onActorMessage);
+
+    this.dispatchEvent(
+      new CustomEvent("actor-hookup", {
+        detail: { actorName, sourceRealm: this }
+      })
+    );
 
     return () => {
       actor.removeListener(this.onActorMessage);

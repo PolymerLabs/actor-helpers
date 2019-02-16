@@ -3,9 +3,10 @@ import {
   Realm,
   ActorSendEventDetails,
   ActorLookupEventDetails,
+  ActorHookupEventDetails,
   Resolver
 } from "../realm/Realm.js";
-import { ValidActorMessageName } from "src/actor/Actor.js";
+import { ValidActorMessageName } from "../actor/Actor.js";
 
 export interface Endpoint extends EventTarget {
   postMessage(payload: any): void;
@@ -49,7 +50,14 @@ export class PostMessageBridge implements Bridge {
   install(realm: Realm) {
     realm.addEventListener("actor-send", this.onLocalActorSend.bind(this));
     realm.addEventListener("actor-lookup", this.onLocalActorLookup.bind(this));
+    realm.addEventListener("actor-hookup", this.onLocalActorHookup.bind(this));
     this.installedRealms.add(realm);
+  }
+
+  private onLocalActorHookup(e: Event) {
+    const msg = (e as CustomEvent).detail as ActorHookupEventDetails;
+    this.resolveWaiting(msg.actorName);
+    this.announceActor(msg.actorName);
   }
 
   private onLocalActorLookup(e: Event) {
@@ -125,22 +133,30 @@ export class PostMessageBridge implements Bridge {
     this.sendToAllLocalRealms(msg.actorName, msg.message);
   }
 
+  private announceActor(actorName: ValidActorMessageName) {
+    this.endpoint.postMessage({
+      type: BridgeMessageType.ANNOUNCE,
+      actorName: actorName
+    } as BridgeAnnounceMessage);
+  }
+
   private [BridgeMessageType.LOOKUP](msg: BridgeLookupMessage) {
     if (!this.actorIsLocal(msg.actorName)) {
       return;
     }
-    this.endpoint.postMessage({
-      type: BridgeMessageType.ANNOUNCE,
-      actorName: msg.actorName
-    } as BridgeAnnounceMessage);
+    this.announceActor(msg.actorName);
+  }
+
+  private resolveWaiting(actorName: ValidActorMessageName) {
+    if (!this.waitingResolves.has(actorName)) {
+      return;
+    }
+    const waitingResolves = this.waitingResolves.get(actorName)!;
+    this.waitingResolves.delete(actorName);
+    waitingResolves.forEach(f => f());
   }
 
   private [BridgeMessageType.ANNOUNCE](msg: BridgeAnnounceMessage) {
-    if (!this.waitingResolves.has(msg.actorName)) {
-      return;
-    }
-    const waitingResolves = this.waitingResolves.get(msg.actorName)!;
-    this.waitingResolves.delete(msg.actorName);
-    waitingResolves.forEach(f => f());
+    this.resolveWaiting(msg.actorName);
   }
 }

@@ -1,6 +1,6 @@
 import { Bridge } from "./Bridge.js";
 import { Realm } from "../realm/Realm.js";
-import { ValidActorMessageName } from "src/actor/Actor.js";
+import { ValidActorMessageName } from "../actor/Actor.js";
 export interface Endpoint extends EventTarget {
     postMessage(payload: any): void;
 }
@@ -29,6 +29,7 @@ export declare class PostMessageBridge implements Bridge {
     private waitingResolves;
     constructor(endpoint: Endpoint);
     install(realm: Realm): void;
+    private onLocalActorHookup;
     private onLocalActorLookup;
     private addWaitingResolver;
     private onLocalActorSend;
@@ -36,6 +37,8 @@ export declare class PostMessageBridge implements Bridge {
     private actorIsLocal;
     private onMessage;
     private [BridgeMessageType.SEND];
+    private announceActor;
     private [BridgeMessageType.LOOKUP];
+    private resolveWaiting;
     private [BridgeMessageType.ANNOUNCE];
 }

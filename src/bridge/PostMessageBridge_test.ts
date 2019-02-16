@@ -88,6 +88,19 @@ suite("PostMessageBridge", () => {
     });
   });
 
+  test("allows blocking lookups in the same realm", async function() {
+    await new Promise(async resolve => {
+      const { realm1 } = this;
+
+      realm1.lookup("ignoring1").then(() => resolve());
+
+      class ResolvingActor extends Actor<"foo"> {
+        onMessage() {}
+      }
+      await realm1.hookup("ignoring1", new ResolvingActor());
+    });
+  });
+
   test("delivers messages to an actor in another realm", async function() {
     await new Promise(async resolve => {
       const { realm1, realm2 } = this;

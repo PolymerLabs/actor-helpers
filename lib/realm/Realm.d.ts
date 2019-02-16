@@ -15,6 +15,10 @@ export interface ActorLookupEventDetails {
     resolve: Resolver;
     sourceRealm: Realm;
 }
+export interface ActorHookupEventDetails {
+    actorName: ValidActorMessageName;
+    sourceRealm: Realm;
+}
 export declare class Realm extends EventTarget {
     private readonly actors;
     constructor();
