@@ -105,8 +105,7 @@ suite("PostMessageBridge", () => {
 
       class SendingActor extends Actor<"dummy"> {
         async init() {
-          await this.realm!.lookup("ignoring1");
-          this.send("ignoring1", "foo");
+          (await this.realm!.lookup("ignoring1")).send("foo");
         }
         onMessage() {}
       }

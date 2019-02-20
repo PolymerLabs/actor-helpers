@@ -1,7 +1,8 @@
 import {
   actorMixin,
   ActorSendEvent,
-  ValidActorMessageName
+  ValidActorMessageName,
+  ActorHandle
 } from "../actor/Actor.js";
 
 /**
@@ -61,18 +62,23 @@ export class Realm extends EventTarget {
     };
   }
 
-  async lookup(actorName: ValidActorMessageName): Promise<void> {
-    if (this.actors.has(actorName)) {
-      return;
+  async lookup<ActorName extends ValidActorMessageName>(
+    actorName: ActorName
+  ): Promise<ActorHandle<ActorName>> {
+    if (!this.actors.has(actorName)) {
+      await new Promise(resolve => {
+        this.dispatchEvent(
+          new CustomEvent("actor-lookup", {
+            detail: { actorName, resolve, sourceRealm: this }
+          })
+        );
+      });
     }
-
-    await new Promise(resolve => {
-      this.dispatchEvent(
-        new CustomEvent("actor-lookup", {
-          detail: { actorName, resolve, sourceRealm: this }
-        })
-      );
-    });
+    return {
+      send: (msg: ActorMessageType[ActorName]) => {
+        this.send(actorName, msg);
+      }
+    };
   }
 
   has<ActorName extends ValidActorMessageName>(actorName: ActorName): boolean {
