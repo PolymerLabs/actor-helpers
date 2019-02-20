@@ -35,8 +35,6 @@ suite("PostMessageBridge", () => {
 
     this.realm1 = new Realm();
     this.realm2 = new Realm();
-    this.port1 = port1;
-    this.port2 = port2;
     this.bridge1 = new PostMessageBridge(port1);
     this.bridge1.install(this.realm1);
     this.bridge2 = new PostMessageBridge(port2);
