@@ -77,7 +77,8 @@ export class Realm extends EventTarget {
     return {
       send: (msg: ActorMessageType[ActorName]) => {
         this.send(actorName, msg);
-      }
+      },
+      actorName
     };
   }
 

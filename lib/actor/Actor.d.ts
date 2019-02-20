@@ -313,6 +313,7 @@ export interface ActorHandle<ActorName extends ValidActorMessageName> {
      * @param message The message to send to this actor.
      */
     send(message: ActorMessageType[ActorName]): void;
+    actorName: ActorName;
 }
 /**
  * Lookup an actor in the system with the provided `actorName`. This requires

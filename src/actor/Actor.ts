@@ -301,6 +301,8 @@ export interface ActorHandle<ActorName extends ValidActorMessageName> {
    * @param message The message to send to this actor.
    */
   send(message: ActorMessageType[ActorName]): void;
+
+  actorName: ActorName;
 }
 
 /**
@@ -350,7 +352,8 @@ export function lookup<ActorName extends ValidActorMessageName>(
   return {
     send(message: ActorMessageType[ActorName]) {
       ACTOR_REALM.send(actorName, message);
-    }
+    },
+    actorName
   };
 }
 
